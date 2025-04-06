@@ -133,6 +133,12 @@ namespace ImpRock.JumpTo
 		private void LoadText(string fileName)
 		{
 			TextAsset langAsset = AssetDatabase.LoadAssetAtPath<TextAsset>($"Assets/Plugins/_EditorTools/Editor/com.improck.jumpto/Editor/Lang/{fileName}");
+			
+			if (langAsset == null)
+			{ 
+				langAsset = AssetDatabase.LoadAssetAtPath<TextAsset>($"Packages/com.munteanuion._editor_free_tools/Editor/_Tested For Assembly Only Editor/com.improck.jumpto/Editor/Lang/{fileName}");
+			}
+			
 			if (langAsset != null)
 			{
 				using (StringReader reader = new StringReader(langAsset.text))
@@ -184,6 +190,12 @@ namespace ImpRock.JumpTo
 			if (!m_ImageResources.ContainsKey(fileNameHash))
 			{
 				Texture2D imageAsset = AssetDatabase.LoadAssetAtPath<Texture2D>($"Assets/Plugins/_EditorTools/Editor/com.improck.jumpto/Editor/Images/{fileName}");
+				
+				if (imageAsset == null)
+				{ 
+					imageAsset = AssetDatabase.LoadAssetAtPath<Texture2D>($"Packages/com.munteanuion._editor_free_tools/Editor/_Tested For Assembly Only Editor/com.improck.jumpto/Editor/Images/{fileName}");
+				}
+				
 				if (imageAsset != null)
 				{
 					m_ImageResources.Add(fileNameHash, imageAsset);
