@@ -12,7 +12,7 @@ namespace Plugins
         {
             string key = "UnityEventFoldout_" + property.propertyPath + "_" + property.serializedObject.targetObject.GetInstanceID();
 
-            bool foldout = EditorPrefs.GetBool(key, true);
+            bool foldout = EditorPrefs.HasKey(key) ? EditorPrefs.GetBool(key) : false;
 
             bool newFoldout = EditorGUI.Foldout(
                 new Rect(position.x, position.y, position.width, EditorGUIUtility.singleLineHeight),
@@ -38,7 +38,7 @@ namespace Plugins
         public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
         {
             string key = "UnityEventFoldout_" + property.propertyPath + "_" + property.serializedObject.targetObject.GetInstanceID();
-            bool foldout = EditorPrefs.GetBool(key, true);
+            bool foldout = EditorPrefs.HasKey(key) ? EditorPrefs.GetBool(key) : false;
 
             if (foldout)
                 return EditorGUI.GetPropertyHeight(property, true) + EditorGUIUtility.singleLineHeight + 2;
