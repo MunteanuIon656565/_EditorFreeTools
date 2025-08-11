@@ -1,8 +1,9 @@
-﻿#if UNITY_EDITOR
+﻿using UnityEngine;
+
+#if UNITY_EDITOR
 
 namespace Plugins
 {
-    using UnityEngine;
     using UnityEditor;
 
     [CustomPropertyDrawer(typeof(UnityEventFoldoutAttribute))]
@@ -47,10 +48,13 @@ namespace Plugins
         }
     }
 
-    public class UnityEventFoldoutAttribute : PropertyAttribute
-    {
-        public UnityEventFoldoutAttribute() { }
-    }
 }
 
 #endif
+
+public class UnityEventFoldoutAttribute : PropertyAttribute
+{
+    public UnityEventFoldoutAttribute()
+    {
+    }
+}
