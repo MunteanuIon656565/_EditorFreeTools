@@ -16,6 +16,7 @@ public class BlackBoxComponent : MonoBehaviour
     private readonly List<GameObject> hiddenChildren = new List<GameObject>();
     private readonly List<Component> hiddenComponents = new List<Component>();
 
+    
     private void Reset()
     {
         // ✅ Verifică dacă obiectul este parte dintr-un prefab (asset sau instanță)
@@ -31,19 +32,29 @@ public class BlackBoxComponent : MonoBehaviour
         {
             Debug.LogError("[BlackBox] Componentul poate fi adăugat doar pe obiecte care sunt parte dintr-un Prefab!");
 
-            // 🔧 Amână distrugerea ca să nu încalce restricțiile de editor
             EditorApplication.delayCall += () =>
             {
                 if (this != null)
                     DestroyImmediate(this);
             };
-
             return;
         }
-        
-        /*if (!IsPrefabAsset())
-            Debug.LogError($"[BlackBox] Componentul trebuie adăugat doar pe prefab asset! Obiect: {gameObject.name}");*/
+
+        // ✅ Verifică dacă prefab-ul sursă este un model FBX
+        var prefabAssetPath = PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(gameObject);
+        if (!string.IsNullOrEmpty(prefabAssetPath) && prefabAssetPath.EndsWith(".fbx", StringComparison.OrdinalIgnoreCase))
+        {
+            Debug.LogError($"[BlackBox] Componentul nu poate fi adăugat pe modele FBX! ({prefabAssetPath})");
+
+            EditorApplication.delayCall += () =>
+            {
+                if (this != null)
+                    DestroyImmediate(this);
+            };
+            return;
+        }
     }
+
 
     private void Awake() => EditorApplication.delayCall += () => { if (this == null) return; TryApplyHide(); }; 
     private void OnEnable() => TryApplyHide();
