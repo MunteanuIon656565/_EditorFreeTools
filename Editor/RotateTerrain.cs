@@ -1,9 +1,11 @@
+using System;
 using UnityEditor;
 using UnityEngine;
 
 public static class RotateTerrain
 {
 	[MenuItem("Tools/Terrain/Rotate 90 Deg")]
+	[Obsolete("Obsolete")]
 	static void rotate()
 	{
 		int i, j;

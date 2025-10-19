@@ -1,7 +1,9 @@
 #if UNITY_EDITOR
 
+using System;
 using UnityEditor;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 [InitializeOnLoad]
 public class AutoFocusPreviewWindow
@@ -13,11 +15,13 @@ public class AutoFocusPreviewWindow
     
     private static string lastOpenedWindow = "";
 
+    [Obsolete("Obsolete")]
     static AutoFocusPreviewWindow()
     {
         Selection.selectionChanged += OnSelectionChanged;
     }
 
+    [Obsolete("Obsolete")]
     private static void OnSelectionChanged()
     {
         Object selectedObject = Selection.activeObject;
@@ -49,6 +53,7 @@ public class AutoFocusPreviewWindow
         return !string.IsNullOrEmpty(assetPath) && !AssetDatabase.IsValidFolder(assetPath);
     }
 
+    [Obsolete("Obsolete")]
     private static bool IsSelectionInProjectWindow(Object selectedObject)
     {
         return EditorWindow.focusedWindow?.title == PROJECT && AssetDatabaseContains(selectedObject);
