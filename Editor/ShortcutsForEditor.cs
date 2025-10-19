@@ -34,6 +34,19 @@ namespace Plugins._EditorTools.Editor
             SceneView.RepaintAll(); // Actualizează vizualizarea Scene
         }
         
+        
+        // Creează un shortcut în meniu: Tools/Shortcuts/Toggle Pause (Ctrl + Space)
+        [MenuItem("Tools/Shortcuts/Toggle Editor Pause _%space ")] 
+        private static void ToggleEditorPause()
+        {
+            // Inversează starea curentă a pauzei editorului
+            EditorApplication.isPaused = !EditorApplication.isPaused;
+
+            // Afișează un mesaj clar în consolă
+            string state = EditorApplication.isPaused ? "PAUSED" : "RESUMED";
+            Debug.Log($"▶ Editor {state} (Ctrl + Space)");
+        }
+        
 
         // Toggle maximize Game Window
         [MenuItem("Tools/Shortcuts/Toggle Maximize Game Window _&F")] // Shortcut: Alt + F
@@ -51,7 +64,7 @@ namespace Plugins._EditorTools.Editor
         }
 
 
-        [MenuItem("Tools/Shortcuts/Toggle Lock _&q")] // Alt + Q
+        [MenuItem("Tools/Shortcuts/Toggle Lock Inspector _&q")] // Alt + Q
         public static void ToggleInspectorLock()
         {
             // Obține Inspectorul activ
