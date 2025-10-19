@@ -1,67 +1,74 @@
+#if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-
-#if UNITY_EDITOR
 using UnityEditor;
-#endif
+using UnityEditor.SceneManagement;
 
 [DisallowMultipleComponent]
 [ExecuteAlways]
 public class BlackBoxComponent : MonoBehaviour
 {
     [Header("BlackBox Settings")]
-    [Tooltip("Listează componentele care pot fi modificate în scenă")]
+    [Tooltip("Componentele care pot fi vizibile în scenă (în afară de Transform și BlackBoxComponent).")]
     public Component[] exposedComponents;
 
-    private List<GameObject> hiddenChildren = new List<GameObject>();
+    private readonly List<GameObject> hiddenChildren = new List<GameObject>();
+    private readonly List<Component> hiddenComponents = new List<Component>();
 
-#if UNITY_EDITOR
     private void Reset()
     {
-        // Log dacă nu e asset, fără ștergere
         if (!IsPrefabAsset())
-        {
             Debug.LogError($"[BlackBox] Componentul trebuie adăugat doar pe prefab asset! Obiect: {gameObject.name}");
-        }
     }
 
-    private void Awake()
+    private void Awake() => HandleVisibility();
+    private void OnEnable() => HandleVisibility();
+
+    private void OnValidate()
     {
-        HandleSceneInstance();
+        // Asigură-te că atunci când scena e deschisă și componentul e deja prezent,
+        // ascunderea se aplică imediat (de ex. după recompilare)
+        if (!EditorApplication.isPlayingOrWillChangePlaymode)
+            HandleVisibility();
     }
 
-    private void OnEnable()
-    {
-        HandleSceneInstance();
-    }
-
-    private void OnDisable()
-    {
-        RestoreSceneVisibility();
-    }
+    private void OnDisable() => RestoreSceneVisibility();
 
     private void OnDestroy()
     {
-        RestoreSceneVisibility();
+        // Dacă este distrus în editor, restaurăm tot (copii și componente)
+        if (!EditorApplication.isPlayingOrWillChangePlaymode)
+            RestoreSceneVisibility();
     }
 
     private bool IsPrefabAsset()
     {
-#if UNITY_2018_1_OR_NEWER
         return PrefabUtility.IsPartOfPrefabAsset(gameObject) && !PrefabUtility.IsPartOfPrefabInstance(gameObject);
-#else
-        return PrefabUtility.GetPrefabType(gameObject) == PrefabType.Prefab;
-#endif
     }
 
-    private void HandleSceneInstance()
+    private bool IsEditingInPrefabMode()
     {
-        // Ascundem doar dacă e instanță în scenă
-        if (!gameObject.scene.IsValid() || !gameObject.scene.isLoaded) return;
+        var stage = PrefabStageUtility.GetCurrentPrefabStage();
+        return stage != null && stage.prefabContentsRoot == gameObject;
+    }
 
+    private void HandleVisibility()
+    {
+        // dacă nu e scenă validă -> ignorăm
+        if (!gameObject.scene.IsValid() || !gameObject.scene.isLoaded)
+            return;
+
+        // În Prefab Mode -> nu ascunde nimic
+        if (IsEditingInPrefabMode())
+        {
+            RestoreSceneVisibility();
+            return;
+        }
+
+        // În scenă (instanță)
         HideChildrenRecursive(transform);
-        HideComponentsInScene();
+        HideComponentsExceptAllowed();
     }
 
     private void HideChildrenRecursive(Transform parent)
@@ -71,28 +78,30 @@ public class BlackBoxComponent : MonoBehaviour
         foreach (Transform child in parent)
         {
             if (child == null) continue;
-
             if (child.gameObject.scene.IsValid())
             {
                 child.gameObject.hideFlags = HideFlags.HideInHierarchy;
                 hiddenChildren.Add(child.gameObject);
-
                 HideChildrenRecursive(child);
             }
         }
     }
 
-    private void HideComponentsInScene()
+    private void HideComponentsExceptAllowed()
     {
-        if (exposedComponents == null) return;
+        hiddenComponents.Clear();
 
         foreach (var comp in GetComponents<Component>())
         {
-            if (comp == null || comp == this) continue;
+            if (comp == null) continue;
+            if (comp is Transform || comp == this) continue;
 
-            bool isExposed = Array.Exists(exposedComponents, e => e == comp);
+            bool isExposed = exposedComponents != null && Array.Exists(exposedComponents, e => e == comp);
             if (!isExposed)
+            {
                 comp.hideFlags = HideFlags.HideInInspector;
+                hiddenComponents.Add(comp);
+            }
         }
     }
 
@@ -104,11 +113,18 @@ public class BlackBoxComponent : MonoBehaviour
                 child.hideFlags = HideFlags.None;
         }
 
-        foreach (var comp in GetComponents<Component>())
+        foreach (var comp in hiddenComponents)
         {
             if (comp != null)
                 comp.hideFlags = HideFlags.None;
         }
+
+        hiddenChildren.Clear();
+        hiddenComponents.Clear();
+
+        // Forțăm refresh în editor
+        EditorApplication.DirtyHierarchyWindowSorting();
+        EditorApplication.RepaintHierarchyWindow();
     }
 
     public void SerializeExposedComponents()
@@ -127,5 +143,5 @@ public class BlackBoxComponent : MonoBehaviour
 
         Debug.Log($"[BlackBox] Components serialized for prefab {gameObject.name}");
     }
-#endif
 }
+#endif
