@@ -18,8 +18,31 @@ public class BlackBoxComponent : MonoBehaviour
 
     private void Reset()
     {
-        if (!IsPrefabAsset())
-            Debug.LogError($"[BlackBox] Componentul trebuie adăugat doar pe prefab asset! Obiect: {gameObject.name}");
+        // ✅ Verifică dacă obiectul este parte dintr-un prefab (asset sau instanță)
+        var assetType = PrefabUtility.GetPrefabAssetType(gameObject);
+        var instanceStatus = PrefabUtility.GetPrefabInstanceStatus(gameObject);
+
+        bool isPrefab =
+            assetType != PrefabAssetType.NotAPrefab ||
+            instanceStatus == PrefabInstanceStatus.Connected ||
+            instanceStatus == PrefabInstanceStatus.MissingAsset;
+
+        if (!isPrefab)
+        {
+            Debug.LogError("[BlackBox] Componentul poate fi adăugat doar pe obiecte care sunt parte dintr-un Prefab!");
+
+            // 🔧 Amână distrugerea ca să nu încalce restricțiile de editor
+            EditorApplication.delayCall += () =>
+            {
+                if (this != null)
+                    DestroyImmediate(this);
+            };
+
+            return;
+        }
+        
+        /*if (!IsPrefabAsset())
+            Debug.LogError($"[BlackBox] Componentul trebuie adăugat doar pe prefab asset! Obiect: {gameObject.name}");*/
     }
 
     private void Awake() => TryApplyHide();
