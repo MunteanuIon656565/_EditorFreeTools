@@ -62,7 +62,7 @@ public class FbxEditor : Editor
         // Deschide Prefab Mode
         PrefabStage.prefabStageClosing += OnPrefabStageClosing;
         AssetDatabase.OpenAsset(AssetDatabase.LoadAssetAtPath<GameObject>(tempPrefabPath));
-        Debug.LogWarning("⚠️ Nu uita să dezactivezi Auto Save înainte de a edita prefab-ul temporar!");
+        Debug.LogWarning("⚠️ Nu uita să dezactivezi Auto Save daca ai careva probleme înainte de a edita prefab-ul temporar!");
     }
 
     private static void OnPrefabStageClosing(PrefabStage stage)
