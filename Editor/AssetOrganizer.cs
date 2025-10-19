@@ -141,22 +141,20 @@ public class AssetOrganizer
     {
         bool anyDeleted = false;
 
-        foreach (string dir in Directory.GetDirectories(startDirectory))
+        // Folosește API-ul Unity pentru subfoldere
+        string[] subfolders = AssetDatabase.GetSubFolders(startDirectory);
+        foreach (string folder in subfolders)
         {
-            anyDeleted |= DeleteEmptyFolders(dir);
+            // Recursiv
+            anyDeleted |= DeleteEmptyFolders(folder);
 
-            if (Directory.GetFiles(dir).Length == 0 && Directory.GetDirectories(dir).Length == 0)
+            // Verifică dacă folderul este gol (fără asset-uri)
+            string[] assets = AssetDatabase.FindAssets("", new[] { folder });
+            if (assets.Length == 0)
             {
-                string relativePath = null;
-
-                if (dir.StartsWith(Application.dataPath))
+                if (AssetDatabase.IsValidFolder(folder))
                 {
-                    relativePath = "Assets" + dir.Substring(Application.dataPath.Length).Replace("\\", "/");
-                }
-
-                if (!string.IsNullOrEmpty(relativePath) && AssetDatabase.IsValidFolder(relativePath))
-                {
-                    AssetDatabase.DeleteAsset(relativePath);
+                    AssetDatabase.DeleteAsset(folder);
                     anyDeleted = true;
                 }
             }
@@ -164,5 +162,6 @@ public class AssetOrganizer
 
         return anyDeleted;
     }
+
 }
 #endif
