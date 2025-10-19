@@ -1,212 +1,276 @@
 #if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
-using UnityEngine;
 using UnityEditor;
 using UnityEditor.SceneManagement;
+using UnityEngine;
 
-[DisallowMultipleComponent]
-[ExecuteAlways]
-public class BlackBoxComponent : MonoBehaviour
+namespace Plugins._EditorFreeTools.Runtime.BlackBoxPrefab
 {
-    [Header("BlackBox Settings")]
-    [Tooltip("Componentele care pot fi vizibile în scenă (în afară de Transform și BlackBoxComponent).")]
-    public Component[] exposedComponents;
-
-    private readonly List<GameObject> hiddenChildren = new List<GameObject>();
-    private readonly List<Component> hiddenComponents = new List<Component>();
-
-    
-    private void Reset()
+    [DisallowMultipleComponent]
+    [ExecuteAlways]
+    public class BlackBoxComponent : MonoBehaviour
     {
-        // ✅ Verifică dacă obiectul este parte dintr-un prefab (asset sau instanță)
-        var assetType = PrefabUtility.GetPrefabAssetType(gameObject);
-        var instanceStatus = PrefabUtility.GetPrefabInstanceStatus(gameObject);
+        [Header("BlackBox Settings")]
+        [Tooltip("Componentele care pot fi vizibile în scenă (în afară de Transform și BlackBoxComponent).")]
+        public Component[] exposedComponents;
 
-        bool isPrefab =
-            assetType != PrefabAssetType.NotAPrefab ||
-            instanceStatus == PrefabInstanceStatus.Connected ||
-            instanceStatus == PrefabInstanceStatus.MissingAsset;
+        private readonly List<GameObject> hiddenChildren = new List<GameObject>();
+        private readonly List<Component> hiddenComponents = new List<Component>();
 
-        if (!isPrefab)
+        // ================== Gizmos ==================
+        [Header("Gizmos Settings")]
+        public Color gizmosColor = new Color(0f, 0f, 0f, 0.12f); // #0000001E
+        public Vector3 gizmosOffset = Vector3.zero;
+        public Vector3 gizmosSize = Vector3.one;
+
+
+        private void Reset()
         {
-            Debug.LogError("[BlackBox] Componentul poate fi adăugat doar pe obiecte care sunt parte dintr-un Prefab!");
+            // ✅ Verifică dacă obiectul este parte dintr-un prefab
+            var assetType = PrefabUtility.GetPrefabAssetType(gameObject);
+            var instanceStatus = PrefabUtility.GetPrefabInstanceStatus(gameObject);
 
-            EditorApplication.delayCall += () =>
+            bool isPrefab =
+                assetType != PrefabAssetType.NotAPrefab ||
+                instanceStatus == PrefabInstanceStatus.Connected ||
+                instanceStatus == PrefabInstanceStatus.MissingAsset;
+
+            if (!isPrefab)
             {
-                if (this != null)
-                    DestroyImmediate(this);
-            };
-            return;
-        }
+                Debug.LogError("[BlackBox] Componentul poate fi adăugat doar pe obiecte care sunt parte dintr-un Prefab!");
+                EditorApplication.delayCall += () => { if (this != null) DestroyImmediate(this); };
+                return;
+            }
 
-        // ✅ Verifică dacă prefab-ul sursă este un model FBX
-        var prefabAssetPath = PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(gameObject);
-        if (!string.IsNullOrEmpty(prefabAssetPath) && prefabAssetPath.EndsWith(".fbx", StringComparison.OrdinalIgnoreCase))
-        {
-            Debug.LogError($"[BlackBox] Componentul nu poate fi adăugat pe modele FBX! ({prefabAssetPath})");
-
-            EditorApplication.delayCall += () =>
+            // ✅ Verifică dacă prefab-ul sursă este un model FBX
+            var prefabAssetPath = PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(gameObject);
+            if (!string.IsNullOrEmpty(prefabAssetPath) && prefabAssetPath.EndsWith(".fbx", StringComparison.OrdinalIgnoreCase))
             {
-                if (this != null)
-                    DestroyImmediate(this);
-            };
-            return;
-        }
-    }
+                Debug.LogError($"[BlackBox] Componentul nu poate fi adăugat pe modele FBX! ({prefabAssetPath})");
+                EditorApplication.delayCall += () => { if (this != null) DestroyImmediate(this); };
+                return;
+            }
 
-
-    private void Awake() => EditorApplication.delayCall += () => { if (this == null) return; TryApplyHide(); }; 
-    private void OnEnable() => TryApplyHide();
-
-    private void OnValidate() => TryApplyHide();
-
-    private void OnDisable() => RestoreSceneVisibility();
-
-    private void OnDestroy()
-    {
-        if (!EditorApplication.isPlayingOrWillChangePlaymode)
-            RestoreSceneVisibility();
-    }
-
-    private bool IsPrefabAsset()
-    {
-        return PrefabUtility.IsPartOfPrefabAsset(gameObject) && !PrefabUtility.IsPartOfPrefabInstance(gameObject);
-    }
-
-    private bool IsEditingInPrefabMode()
-    {
-        var stage = PrefabStageUtility.GetCurrentPrefabStage();
-        return stage != null && stage.prefabContentsRoot == gameObject;
-    }
-
-    /// <summary>
-    /// Aplică ascunderea automat doar dacă e în scenă (nu prefab mode)
-    /// </summary>
-    private void TryApplyHide()
-    {
-        if (!gameObject.scene.IsValid() || !gameObject.scene.isLoaded)
-            return;
-
-        if (IsEditingInPrefabMode())
-        {
-            RestoreSceneVisibility();
-            return;
+            // Calculează dimensiunea box-ului automat
+            CalculateGizmosSize();
         }
 
-        // Aplica ascunderea la pornirea scenei
-        if (!EditorApplication.isPlayingOrWillChangePlaymode)
+        private void Awake() => EditorApplication.delayCall += () => { if (this == null) return; TryApplyHide(); };
+        private void OnEnable() => TryApplyHide();
+        private void OnValidate() => TryApplyHide();
+        private void OnDisable() => RestoreSceneVisibility();
+        private void OnDestroy() { if (!EditorApplication.isPlayingOrWillChangePlaymode) RestoreSceneVisibility(); }
+
+        private bool IsPrefabAsset() => PrefabUtility.IsPartOfPrefabAsset(gameObject) && !PrefabUtility.IsPartOfPrefabInstance(gameObject);
+
+        private bool IsEditingInPrefabMode()
         {
-            HideAll();
+            var stage = PrefabStageUtility.GetCurrentPrefabStage();
+            return stage != null && stage.prefabContentsRoot == gameObject;
         }
-    }
 
-    private void HideChildrenRecursive(Transform parent)
-    {
-        foreach (Transform child in parent)
+        private void TryApplyHide()
         {
-            if (child == null) continue;
+            if (!gameObject.scene.IsValid() || !gameObject.scene.isLoaded)
+                return;
 
-            if (child.gameObject.scene.IsValid())
+            if (IsEditingInPrefabMode())
             {
-                child.gameObject.hideFlags = HideFlags.HideInHierarchy;
-                hiddenChildren.Add(child.gameObject);
-                HideChildrenRecursive(child);
+                RestoreSceneVisibility();
+                return;
+            }
+
+            if (!EditorApplication.isPlayingOrWillChangePlaymode)
+            {
+                HideAll();
             }
         }
-    }
 
-    private void HideComponentsExceptAllowed()
-    {
-        foreach (var comp in GetComponents<Component>())
+        private void HideChildrenRecursive(Transform parent)
         {
-            if (comp == null) continue;
-            if (comp is Transform || comp == this) continue;
-
-            bool isExposed = exposedComponents != null && Array.Exists(exposedComponents, e => e == comp);
-            if (!isExposed)
+            foreach (Transform child in parent)
             {
-                comp.hideFlags = HideFlags.HideInInspector;
-                hiddenComponents.Add(comp);
+                if (child == null) continue;
+
+                if (child.gameObject.scene.IsValid())
+                {
+                    child.gameObject.hideFlags = HideFlags.HideInHierarchy;
+                    hiddenChildren.Add(child.gameObject);
+                    HideChildrenRecursive(child);
+                }
             }
         }
-    }
 
-    public void HideAll()
-    {
-        hiddenChildren.Clear();
-        hiddenComponents.Clear();
-
-        HideChildrenRecursive(transform);
-        HideComponentsExceptAllowed();
-
-        EditorApplication.RepaintHierarchyWindow();
-    }
-
-    public void RestoreSceneVisibility()
-    {
-        foreach (var child in hiddenChildren)
+        private void HideComponentsExceptAllowed()
         {
-            if (child != null)
-                child.hideFlags = HideFlags.None;
+            foreach (var comp in GetComponents<Component>())
+            {
+                if (comp == null) continue;
+                if (comp is Transform || comp == this) continue;
+
+                bool isExposed = exposedComponents != null && Array.Exists(exposedComponents, e => e == comp);
+                if (!isExposed)
+                {
+                    comp.hideFlags = HideFlags.HideInInspector;
+                    hiddenComponents.Add(comp);
+                }
+            }
         }
 
-        foreach (var comp in hiddenComponents)
+        public void HideAll()
         {
-            if (comp != null)
-                comp.hideFlags = HideFlags.None;
+            hiddenChildren.Clear();
+            hiddenComponents.Clear();
+
+            HideChildrenRecursive(transform);
+            HideComponentsExceptAllowed();
+
+            EditorApplication.RepaintHierarchyWindow();
         }
 
-        hiddenChildren.Clear();
-        hiddenComponents.Clear();
-
-        EditorApplication.RepaintHierarchyWindow();
-    }
-
-    public void SerializeExposedComponents()
-    {
-        if (exposedComponents == null) return;
-
-        foreach (var comp in exposedComponents)
+        public void RestoreSceneVisibility()
         {
-            if (comp == null) continue;
+            foreach (var child in hiddenChildren)
+            {
+                if (child != null)
+                    child.hideFlags = HideFlags.None;
+            }
 
-            string json = JsonUtility.ToJson(comp);
-            string path = $"Assets/BlackBox/Serialized/{gameObject.name}_{comp.GetType().Name}.json";
-            System.IO.Directory.CreateDirectory("Assets/BlackBox/Serialized");
-            System.IO.File.WriteAllText(path, json);
+            foreach (var comp in hiddenComponents)
+            {
+                if (comp != null)
+                    comp.hideFlags = HideFlags.None;
+            }
+
+            hiddenChildren.Clear();
+            hiddenComponents.Clear();
+
+            EditorApplication.RepaintHierarchyWindow();
         }
 
-        Debug.Log($"[BlackBox] Components serialized for prefab {gameObject.name}");
-    }
-}
+        public void SerializeExposedComponents()
+        {
+            if (exposedComponents == null) return;
 
+            foreach (var comp in exposedComponents)
+            {
+                if (comp == null) continue;
+
+                string json = JsonUtility.ToJson(comp);
+                string path = $"Assets/BlackBox/Serialized/{gameObject.name}_{comp.GetType().Name}.json";
+                System.IO.Directory.CreateDirectory("Assets/BlackBox/Serialized");
+                System.IO.File.WriteAllText(path, json);
+            }
+
+            Debug.Log($"[BlackBox] Components serialized for prefab {gameObject.name}");
+        }
+
+        // ================== Gizmos ==================
+        private void CalculateGizmosSize()
+        {
+            // Începem cu un Bounds invalid
+            Bounds bounds = new Bounds(transform.position, Vector3.zero);
+            bool hasBounds = false;
+
+            // Funcție helper pentru a adăuga mesh-uri în Bounds
+            void EncapsulateMesh(Mesh mesh, Transform t)
+            {
+                if (mesh == null) return;
+                var vertices = mesh.vertices;
+                if (vertices == null || vertices.Length == 0) return;
+
+                foreach (var v in vertices)
+                {
+                    Vector3 worldPos = t.TransformPoint(v);
+                    if (!hasBounds)
+                    {
+                        bounds = new Bounds(worldPos, Vector3.zero);
+                        hasBounds = true;
+                    }
+                    else bounds.Encapsulate(worldPos);
+                }
+            }
+
+            // --- MeshFilter ---
+            foreach (var mf in GetComponentsInChildren<MeshFilter>())
+            {
+                EncapsulateMesh(mf.sharedMesh, mf.transform);
+            }
+
+            // --- SkinnedMeshRenderer ---
+            foreach (var smr in GetComponentsInChildren<SkinnedMeshRenderer>())
+            {
+                EncapsulateMesh(smr.sharedMesh, smr.transform);
+            }
+
+            // --- Colliders deja existente ---
+            foreach (var col in GetComponentsInChildren<Collider>())
+            {
+                if (!hasBounds)
+                {
+                    bounds = col.bounds;
+                    hasBounds = true;
+                }
+                else bounds.Encapsulate(col.bounds);
+            }
+
+            // Dacă nu avem nimic, fallback la 1m cube
+            if (!hasBounds)
+            {
+                gizmosSize = Vector3.one;
+                gizmosOffset = Vector3.zero;
+                return;
+            }
+
+            gizmosSize = bounds.size;
+            gizmosOffset = bounds.center - transform.position;
+        }
+
+
+        private void OnDrawGizmos()
+        {
+            if (gizmosSize == Vector3.zero) CalculateGizmosSize();
+
+            Gizmos.color = gizmosColor;
+
+            Vector3 pos = transform.position + gizmosOffset;
+
+            // Wireframe
+            Gizmos.DrawWireCube(pos, gizmosSize);
+
+            // Solid
+            Gizmos.DrawCube(pos, gizmosSize);
+        }
+    }
 
 // ===== CUSTOM INSPECTOR =====
-[CustomEditor(typeof(BlackBoxComponent))]
-public class BlackBoxComponentEditor : Editor
-{
-    public override void OnInspectorGUI()
+    [CustomEditor(typeof(BlackBoxComponent))]
+    public class BlackBoxComponentEditor : Editor
     {
-        DrawDefaultInspector();
-
-        var bb = (BlackBoxComponent)target;
-        EditorGUILayout.Space(8);
-        EditorGUILayout.LabelField("=== Debug Tools ===", EditorStyles.boldLabel);
-
-        if (GUILayout.Button("👁️ Show All (Test)"))
+        public override void OnInspectorGUI()
         {
-            bb.RestoreSceneVisibility();
-        }
+            var bb = (BlackBoxComponent)target;
 
-        if (GUILayout.Button("🙈 Hide All (Test)"))
-        {
-            bb.HideAll();
-        }
+            DrawDefaultInspector();
 
-        EditorGUILayout.HelpBox(
-            "Aceste butoane afectează doar scena curentă.\nDupă reîncărcare sau reatașare, prefab-ul se va ascunde automat.",
-            MessageType.Info);
+            EditorGUILayout.Space(8);
+            EditorGUILayout.LabelField("=== Debug Tools ===", EditorStyles.boldLabel);
+
+            if (GUILayout.Button("👁️ Show All (Test)"))
+            {
+                bb.RestoreSceneVisibility();
+            }
+
+            if (GUILayout.Button("🙈 Hide All (Test)"))
+            {
+                bb.HideAll();
+            }
+
+            EditorGUILayout.HelpBox(
+                "Aceste butoane afectează doar scena curentă.\nDupă reîncărcare sau reatașare, prefab-ul se va ascunde automat.",
+                MessageType.Info);
+        }
     }
-}
 #endif
+}
