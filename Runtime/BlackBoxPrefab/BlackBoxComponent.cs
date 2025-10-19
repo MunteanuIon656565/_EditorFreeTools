@@ -272,5 +272,5 @@ namespace Plugins._EditorFreeTools.Runtime.BlackBoxPrefab
                 MessageType.Info);
         }
     }
-#endif
 }
+#endif
