@@ -21,6 +21,9 @@ namespace GizmosDrawer
         public float gizmoScale = 1f;
         public Color gizmoColor = Color.yellow;
 
+        [Tooltip("Offset applied to the gizmo position relative to the object.")]
+        public Vector3 gizmoOffset = Vector3.zero;
+
         [Header("Axis Settings")]
         public bool showLocalAxes = false;
         [Min(0f)]
@@ -40,10 +43,6 @@ namespace GizmosDrawer
         [SerializeField, Tooltip("Optional custom collider reference. If not set, will default to GetComponent<Collider>().")]
         private Collider cachedCollider;
 
-        /// <summary>
-        /// Returns cached collider (or attempts to get one from the GameObject).
-        /// Public accessor so editor can inspect safely.
-        /// </summary>
         public Collider GetActiveCollider()
         {
             if (cachedCollider == null)
@@ -104,7 +103,7 @@ namespace GizmosDrawer
                 DrawColliderBounds(selected: false);
             else
             {
-                Gizmos.matrix = transform.localToWorldMatrix;
+                Gizmos.matrix = Matrix4x4.TRS(transform.position + gizmoOffset, transform.rotation, transform.lossyScale);
                 DrawShape(gizmoShape);
                 DrawShapeLabel();
             }
@@ -127,7 +126,7 @@ namespace GizmosDrawer
                 DrawColliderBounds(selected: true);
             else
             {
-                Gizmos.matrix = transform.localToWorldMatrix;
+                Gizmos.matrix = Matrix4x4.TRS(transform.position + gizmoOffset, transform.rotation, transform.lossyScale);
                 DrawShape(gizmoShape);
                 DrawShapeLabel();
             }
@@ -141,7 +140,7 @@ namespace GizmosDrawer
         {
             if (!drawConnectionLine || targetConnection == null) return;
             Gizmos.color = gizmoColor;
-            Gizmos.DrawLine(transform.position, targetConnection.position);
+            Gizmos.DrawLine(transform.position + gizmoOffset, targetConnection.position + gizmoOffset);
         }
 
         private void DrawAxes()
@@ -156,20 +155,20 @@ namespace GizmosDrawer
             Handles.color = gizmoColor;
 
             // X
-            Handles.ArrowHandleCap(0, transform.position,
+            Handles.ArrowHandleCap(0, transform.position + gizmoOffset,
                                    transform.rotation * Quaternion.Euler(0f, 0f, -90f),
                                    arrowSize, EventType.Repaint);
             // Y
-            Handles.ArrowHandleCap(1, transform.position,
+            Handles.ArrowHandleCap(1, transform.position + gizmoOffset,
                                    transform.rotation * Quaternion.Euler(90f, 0f, 0f),
                                    arrowSize, EventType.Repaint);
             // Z
-            Handles.ArrowHandleCap(2, transform.position,
+            Handles.ArrowHandleCap(2, transform.position + gizmoOffset,
                                    transform.rotation,
                                    arrowSize, EventType.Repaint);
 
             var prevMatrix = Gizmos.matrix;
-            Gizmos.matrix = transform.localToWorldMatrix;
+            Gizmos.matrix = Matrix4x4.TRS(transform.position + gizmoOffset, transform.rotation, transform.lossyScale);
             Gizmos.DrawLine(Vector3.zero, Vector3.right * axisLength);
             Gizmos.DrawLine(Vector3.zero, Vector3.up * axisLength);
             Gizmos.DrawLine(Vector3.zero, Vector3.forward * axisLength);
@@ -209,7 +208,7 @@ namespace GizmosDrawer
             if (active == null || !active.enabled) return;
 
             Matrix4x4 prevMatrix = Gizmos.matrix;
-            Gizmos.matrix = transform.localToWorldMatrix;
+            Gizmos.matrix = Matrix4x4.TRS(transform.position + gizmoOffset, transform.rotation, transform.lossyScale);
 
             Color outline = selected ? Color.yellow :
                             new Color(gizmoColor.r, gizmoColor.g, gizmoColor.b, 1f);
@@ -257,7 +256,6 @@ namespace GizmosDrawer
             }
             else
             {
-                // fallback to world bounds
                 Gizmos.matrix = Matrix4x4.identity;
                 var bounds = active.bounds;
                 Gizmos.DrawWireCube(bounds.center, bounds.size);
@@ -270,7 +268,7 @@ namespace GizmosDrawer
         {
             if (useColliderBounds && GetActiveCollider() != null) return;
 
-            Vector3 worldPos = transform.position;
+            Vector3 worldPos = transform.position + gizmoOffset;
             string label = "";
             switch (gizmoShape)
             {
@@ -283,13 +281,6 @@ namespace GizmosDrawer
                     label = $"Size: {boxSize.x * gizmoScale:F2}, {boxSize.y * gizmoScale:F2}, {boxSize.z * gizmoScale:F2}";
                     break;
             }
-
-/*#if UNITY_EDITOR
-            GUIStyle style = new GUIStyle();
-            style.normal.textColor = Color.white;
-            style.fontSize = 12;
-            Handles.Label(worldPos + Vector3.up * HandleUtility.GetHandleSize(worldPos) * 0.5f, label, style);
-#endif*/
         }
     }
 
@@ -301,7 +292,7 @@ namespace GizmosDrawer
         SerializedProperty useColliderBoundsProp, gizmoShapeProp, gizmoScaleProp, gizmoColorProp;
         SerializedProperty showLocalAxesProp, axisLengthProp;
         SerializedProperty drawConnectionLineProp, targetConnectionProp;
-        SerializedProperty boxSizeProp, showInPlayModeProp;
+        SerializedProperty boxSizeProp, showInPlayModeProp, gizmoOffsetProp;
 
         private void OnEnable()
         {
@@ -316,6 +307,7 @@ namespace GizmosDrawer
             targetConnectionProp = serializedObject.FindProperty(nameof(GizmosDrawer.targetConnection));
             boxSizeProp = serializedObject.FindProperty(nameof(GizmosDrawer.boxSize));
             showInPlayModeProp = serializedObject.FindProperty(nameof(GizmosDrawer.showInPlayMode));
+            gizmoOffsetProp = serializedObject.FindProperty(nameof(GizmosDrawer.gizmoOffset));
         }
 
         public override void OnInspectorGUI()
@@ -336,6 +328,7 @@ namespace GizmosDrawer
             EditorGUILayout.LabelField("Shape Settings", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(gizmoColorProp, new GUIContent("Gizmo Color", "Color of the gizmo outline/fill."));
             EditorGUILayout.PropertyField(showInPlayModeProp, new GUIContent("Show In Play Mode", "Whether to draw gizmo in Play Mode as well."));
+            EditorGUILayout.PropertyField(gizmoOffsetProp, new GUIContent("Gizmo Offset", "Offset applied to gizmo relative to object position."));
 
             EditorGUILayout.PropertyField(showLocalAxesProp, new GUIContent("Show Local Axes", "Draw local axes from object origin."));
             if (showLocalAxesProp.boolValue)
@@ -367,7 +360,6 @@ namespace GizmosDrawer
             }
 
             EditorGUILayout.Space();
-            //EditorGUILayout.LabelField("Connection Line", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(drawConnectionLineProp, new GUIContent("Draw Connection Line", "Draw a line from this object to targetConnection."));
             if (drawConnectionLineProp.boolValue)
                 EditorGUILayout.PropertyField(targetConnectionProp, new GUIContent("Target Connection", "Transform to draw line to."));
@@ -375,35 +367,28 @@ namespace GizmosDrawer
             serializedObject.ApplyModifiedProperties();
         }
 
-        // Scene GUI: handles for editing boxSize directly in Scene View.
         private void OnSceneGUI()
         {
             var drawer = (GizmosDrawer)target;
             if (drawer == null) return;
             if (!drawer.enabled) return;
 
-            // Only edit boxSize when manual box shape is active (not using collider)
             if (drawer.useColliderBounds) return;
             if (drawer.gizmoShape != GizmosDrawer.Shape.Box && drawer.gizmoShape != GizmosDrawer.Shape.BoxWire) return;
 
-            // World matrix for drawing handles relative to object transform:
-            Matrix4x4 matrix = drawer.transform.localToWorldMatrix;
+            Matrix4x4 matrix = Matrix4x4.TRS(drawer.transform.position + drawer.gizmoOffset, drawer.transform.rotation, drawer.transform.lossyScale);
             using (new Handles.DrawingScope(matrix))
             {
                 Handles.color = drawer.gizmoColor;
 
-                // The ScaleHandle takes a size vector (local). Position at zero (local origin).
-                // Compute handle size on screen:
-                float handleSize = HandleUtility.GetHandleSize(drawer.transform.position) * 0.5f;
+                float handleSize = HandleUtility.GetHandleSize(drawer.transform.position + drawer.gizmoOffset) * 0.5f;
 
                 Vector3 currentSize = drawer.boxSize;
                 Vector3 newSize = Handles.ScaleHandle(currentSize, Vector3.zero, Quaternion.identity, handleSize);
 
-                // If user changed size, apply with Undo
                 if (newSize != currentSize)
                 {
                     Undo.RecordObject(drawer, "Change Box Size");
-                    // ensure no negative values
                     newSize = new Vector3(Mathf.Max(0f, newSize.x), Mathf.Max(0f, newSize.y), Mathf.Max(0f, newSize.z));
                     drawer.boxSize = newSize;
                     EditorUtility.SetDirty(drawer);
