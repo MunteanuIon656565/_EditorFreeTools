@@ -22,22 +22,15 @@ public class BlackBoxComponent : MonoBehaviour
             Debug.LogError($"[BlackBox] Componentul trebuie adăugat doar pe prefab asset! Obiect: {gameObject.name}");
     }
 
-    private void Awake() => HandleVisibility();
-    private void OnEnable() => HandleVisibility();
+    private void Awake() => TryApplyHide();
+    private void OnEnable() => TryApplyHide();
 
-    private void OnValidate()
-    {
-        // Asigură-te că atunci când scena e deschisă și componentul e deja prezent,
-        // ascunderea se aplică imediat (de ex. după recompilare)
-        if (!EditorApplication.isPlayingOrWillChangePlaymode)
-            HandleVisibility();
-    }
+    private void OnValidate() => TryApplyHide();
 
     private void OnDisable() => RestoreSceneVisibility();
 
     private void OnDestroy()
     {
-        // Dacă este distrus în editor, restaurăm tot (copii și componente)
         if (!EditorApplication.isPlayingOrWillChangePlaymode)
             RestoreSceneVisibility();
     }
@@ -53,31 +46,33 @@ public class BlackBoxComponent : MonoBehaviour
         return stage != null && stage.prefabContentsRoot == gameObject;
     }
 
-    private void HandleVisibility()
+    /// <summary>
+    /// Aplică ascunderea automat doar dacă e în scenă (nu prefab mode)
+    /// </summary>
+    private void TryApplyHide()
     {
-        // dacă nu e scenă validă -> ignorăm
         if (!gameObject.scene.IsValid() || !gameObject.scene.isLoaded)
             return;
 
-        // În Prefab Mode -> nu ascunde nimic
         if (IsEditingInPrefabMode())
         {
             RestoreSceneVisibility();
             return;
         }
 
-        // În scenă (instanță)
-        HideChildrenRecursive(transform);
-        HideComponentsExceptAllowed();
+        // Aplica ascunderea la pornirea scenei
+        if (!EditorApplication.isPlayingOrWillChangePlaymode)
+        {
+            HideAll();
+        }
     }
 
     private void HideChildrenRecursive(Transform parent)
     {
-        hiddenChildren.Clear();
-
         foreach (Transform child in parent)
         {
             if (child == null) continue;
+
             if (child.gameObject.scene.IsValid())
             {
                 child.gameObject.hideFlags = HideFlags.HideInHierarchy;
@@ -89,8 +84,6 @@ public class BlackBoxComponent : MonoBehaviour
 
     private void HideComponentsExceptAllowed()
     {
-        hiddenComponents.Clear();
-
         foreach (var comp in GetComponents<Component>())
         {
             if (comp == null) continue;
@@ -103,6 +96,17 @@ public class BlackBoxComponent : MonoBehaviour
                 hiddenComponents.Add(comp);
             }
         }
+    }
+
+    public void HideAll()
+    {
+        hiddenChildren.Clear();
+        hiddenComponents.Clear();
+
+        HideChildrenRecursive(transform);
+        HideComponentsExceptAllowed();
+
+        EditorApplication.RepaintHierarchyWindow();
     }
 
     public void RestoreSceneVisibility()
@@ -122,8 +126,6 @@ public class BlackBoxComponent : MonoBehaviour
         hiddenChildren.Clear();
         hiddenComponents.Clear();
 
-        // Forțăm refresh în editor
-        EditorApplication.DirtyHierarchyWindowSorting();
         EditorApplication.RepaintHierarchyWindow();
     }
 
@@ -142,6 +144,35 @@ public class BlackBoxComponent : MonoBehaviour
         }
 
         Debug.Log($"[BlackBox] Components serialized for prefab {gameObject.name}");
+    }
+}
+
+
+// ===== CUSTOM INSPECTOR =====
+[CustomEditor(typeof(BlackBoxComponent))]
+public class BlackBoxComponentEditor : Editor
+{
+    public override void OnInspectorGUI()
+    {
+        DrawDefaultInspector();
+
+        var bb = (BlackBoxComponent)target;
+        EditorGUILayout.Space(8);
+        EditorGUILayout.LabelField("=== Debug Tools ===", EditorStyles.boldLabel);
+
+        if (GUILayout.Button("👁️ Show All (Test)"))
+        {
+            bb.RestoreSceneVisibility();
+        }
+
+        if (GUILayout.Button("🙈 Hide All (Test)"))
+        {
+            bb.HideAll();
+        }
+
+        EditorGUILayout.HelpBox(
+            "Aceste butoane afectează doar scena curentă.\nDupă reîncărcare sau reatașare, prefab-ul se va ascunde automat.",
+            MessageType.Info);
     }
 }
 #endif
