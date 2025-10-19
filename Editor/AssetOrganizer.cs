@@ -6,7 +6,7 @@ using System.IO;
 
 public class AssetOrganizer
 {
-    private const string menuPath = "Assets/Asset Organizer/";
+    private const string menuPath = "Assets/Fbx & Prefab Organizer/";
 
     [MenuItem(menuPath + "Organize Dependencies", true)]
     [MenuItem(menuPath + "Organize Dependencies into New Folder", true)]
@@ -32,7 +32,7 @@ public class AssetOrganizer
         return false;
     }
 
-    [MenuItem(menuPath + "Organize Dependencies", false, 99)]
+    [MenuItem(menuPath + "Organize Dependencies", false, 9999)]
     private static void OrganizeDependencies()
     {
         string assetPath = AssetDatabase.GetAssetPath(Selection.activeObject);
@@ -43,7 +43,7 @@ public class AssetOrganizer
         DeleteEmptyFoldersLoop(assetDirectory);
     }
 
-    [MenuItem(menuPath + "Organize Dependencies into New Folder", false, 100)]
+    [MenuItem(menuPath + "Organize Dependencies into New Folder", false, 10000)]
     private static void OrganizeDependenciesIntoNewFolder()
     {
         string assetPath = AssetDatabase.GetAssetPath(Selection.activeObject);
