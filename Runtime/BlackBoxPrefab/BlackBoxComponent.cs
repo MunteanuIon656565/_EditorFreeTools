@@ -45,7 +45,7 @@ public class BlackBoxComponent : MonoBehaviour
             Debug.LogError($"[BlackBox] Componentul trebuie adăugat doar pe prefab asset! Obiect: {gameObject.name}");*/
     }
 
-    private void Awake() => TryApplyHide();
+    private void Awake() => EditorApplication.delayCall += () => { if (this == null) return; TryApplyHide(); }; 
     private void OnEnable() => TryApplyHide();
 
     private void OnValidate() => TryApplyHide();
