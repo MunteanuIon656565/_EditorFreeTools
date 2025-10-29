@@ -168,7 +168,7 @@ namespace GizmosDrawer
                                    arrowSize, EventType.Repaint);
 
             var prevMatrix = Gizmos.matrix;
-            Gizmos.matrix = Matrix4x4.TRS(transform.position + gizmoOffset, transform.rotation, transform.lossyScale);
+            Gizmos.matrix = Matrix4x4.TRS(transform.position + gizmoOffset, transform.rotation, Vector3.zero);
             Gizmos.DrawLine(Vector3.zero, Vector3.right * axisLength);
             Gizmos.DrawLine(Vector3.zero, Vector3.up * axisLength);
             Gizmos.DrawLine(Vector3.zero, Vector3.forward * axisLength);
