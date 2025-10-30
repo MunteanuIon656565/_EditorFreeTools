@@ -1,400 +1,207 @@
 using UnityEngine;
 
-#if UNITY_EDITOR
-using UnityEditor;
-using UnityEditorInternal;
-#endif
-
-namespace GizmosDrawer
+namespace GizmosToolkit
 {
-    [AddComponentMenu("GizmosDrawer")]
+    [AddComponentMenu("GizmosToolkit/Gizmos Drawer")]
     public class GizmosDrawer : MonoBehaviour
     {
-        public enum Shape { SphereWire, Sphere, BoxWire, Box }
+        public enum GizmoShape { Cube, Sphere, Rect }
 
-        [Header("Basic Settings")]
-        [Tooltip("If true, use the attached or assigned Collider bounds instead of the manual shape.")]
-        public bool useColliderBounds = false;
-        public Shape gizmoShape = Shape.Sphere;
-
-        [Min(0f)]
-        public float gizmoScale = 1f;
-        public Color gizmoColor = Color.yellow;
-
-        [Tooltip("Offset applied to the gizmo position relative to the object.")]
-        public Vector3 gizmoOffset = Vector3.zero;
+        [Header("General Settings")]
+        public bool useColliders;
+        public GizmoShape shapeType;
+        [Min(0)] public float size = 0.03f;
+        public Color color = Color.blue;
 
         [Header("Axis Settings")]
-        public bool showLocalAxes = false;
-        [Min(0f)]
-        public float axisLength = 0.6f;
+        public bool showAxis;
+        [Min(0)] public float axisLength = 0.65f;
 
         [Header("Connection Line")]
-        public bool drawConnectionLine = false;
-        public Transform targetConnection;
+        public bool drawConnection;
+        public Transform connectTo;
 
-        [Header("Box Shape Settings")]
-        public Vector3 boxSize = Vector3.one;
+        [Header("Rect Settings")]
+        public Vector3 rectSize = Vector3.one;
 
-        [Header("Behavior / Runtime Settings")]
-        [Tooltip("If true, gizmos will also be drawn in Play Mode (not only in Editor Scene view).")]
-        public bool showInPlayMode = false;
+        [SerializeField] private Collider[] _colliders;
+        [SerializeField] private bool _hasColliders;
+        [SerializeField] private bool _initialized;
 
-        [SerializeField, Tooltip("Optional custom collider reference. If not set, will default to GetComponent<Collider>().")]
-        private Collider cachedCollider;
-
-        public Collider GetActiveCollider()
+        [ContextMenu("Find Colliders")]
+        private void FindColliders()
         {
-            if (cachedCollider == null)
-            {
-                cachedCollider = GetComponent<Collider>();
-                if (cachedCollider == null)
-                {
-                    useColliderBounds = false;
-                }
-            }
-            return cachedCollider;
+            _colliders = GetComponents<Collider>();
+            _hasColliders = _colliders != null && _colliders.Length > 0;
+            if (_hasColliders) useColliders = true;
         }
 
         private void Reset()
         {
-            var col = GetComponent<Collider>();
-            if (col != null)
-            {
-                cachedCollider = col;
-                useColliderBounds = true;
-            }
-            gizmoColor = new Color(Random.value, Random.value, Random.value,
-                                    Mathf.Clamp01(Random.Range(0.5f, 1f)));
+            FindColliders();
+            color = new Color(Random.value, Random.value, Random.value, 1f);
         }
 
         private void OnValidate()
         {
-            gizmoScale = Mathf.Max(0f, gizmoScale);
-            axisLength = Mathf.Max(0f, axisLength);
-            boxSize = new Vector3(Mathf.Max(0f, boxSize.x),
-                                  Mathf.Max(0f, boxSize.y),
-                                  Mathf.Max(0f, boxSize.z));
+            if (_initialized) return;
+            FindColliders();
+            _initialized = true;
+#if UNITY_EDITOR
+            UnityEditor.EditorUtility.SetDirty(this);
+#endif
         }
 
 #if UNITY_EDITOR
-        private bool ShouldDrawGizmos()
-        {
-            bool inspectorExpanded = InternalEditorUtility.GetIsInspectorExpanded(this);
-            if (!EditorApplication.isPlaying)
-                return inspectorExpanded;
-            else
-                return showInPlayMode;
-        }
-
         private void OnDrawGizmos()
         {
-            if (!ShouldDrawGizmos() || !enabled) return;
+            if (!enabled) return;
 
-            Matrix4x4 prevMatrix = Gizmos.matrix;
-            Color prevColor = Gizmos.color;
+            Color outlineColor = new(color.r, color.g, color.b, 1);
+            Gizmos.color = outlineColor;
+            Gizmos.matrix = transform.localToWorldMatrix;
 
-            DrawConnection();
-
-            Gizmos.color = new Color(gizmoColor.r, gizmoColor.g, gizmoColor.b, 1f);
-            DrawAxes();
-
-            if (useColliderBounds && GetActiveCollider() != null)
-                DrawColliderBounds(selected: false);
-            else
+            if (showAxis)
             {
-                Gizmos.matrix = Matrix4x4.TRS(transform.position + gizmoOffset, transform.rotation, transform.lossyScale);
-                DrawShape(gizmoShape);
-                DrawShapeLabel();
+                UnityEditor.Handles.color = color;
+                UnityEditor.Handles.ArrowHandleCap(0, transform.position, transform.rotation, axisLength, EventType.Repaint);
             }
 
-            Gizmos.matrix = prevMatrix;
-            Gizmos.color = prevColor;
+            if (drawConnection && connectTo)
+            {
+                Gizmos.color = color;
+                Gizmos.DrawLine(transform.position, connectTo.position);
+            }
+
+            if (_hasColliders && useColliders)
+            {
+                DrawColliders(false);
+                return;
+            }
+
+            DrawShape(outlineColor);
         }
 
         private void OnDrawGizmosSelected()
         {
             if (!enabled) return;
 
-            Matrix4x4 prevMatrix = Gizmos.matrix;
-            Color prevColor = Gizmos.color;
-
             Gizmos.color = Color.yellow;
-            DrawAxes();
+            Gizmos.matrix = transform.localToWorldMatrix;
 
-            if (useColliderBounds && GetActiveCollider() != null)
-                DrawColliderBounds(selected: true);
-            else
+            if (_hasColliders && useColliders)
             {
-                Gizmos.matrix = Matrix4x4.TRS(transform.position + gizmoOffset, transform.rotation, transform.lossyScale);
-                DrawShape(gizmoShape);
-                DrawShapeLabel();
+                DrawColliders(true);
+                return;
             }
 
-            Gizmos.matrix = prevMatrix;
-            Gizmos.color = prevColor;
-        }
-#endif
-
-        private void DrawConnection()
-        {
-            if (!drawConnectionLine || targetConnection == null) return;
-            Gizmos.color = gizmoColor;
-            Gizmos.DrawLine(transform.position + gizmoOffset, targetConnection.position + gizmoOffset);
-        }
-
-        private void DrawAxes()
-        {
-            if (!showLocalAxes) return;
-
-            float maxScale = Mathf.Max(transform.lossyScale.x,
-                                      Mathf.Max(transform.lossyScale.y, transform.lossyScale.z));
-            float arrowSize = Mathf.Max(0.0001f, axisLength * Mathf.Max(1f, maxScale));
-
-#if UNITY_EDITOR
-            Handles.color = gizmoColor;
-
-            // X
-            Handles.ArrowHandleCap(0, transform.position + gizmoOffset,
-                                   transform.rotation * Quaternion.Euler(0f, 0f, -90f),
-                                   arrowSize, EventType.Repaint);
-            // Y
-            Handles.ArrowHandleCap(1, transform.position + gizmoOffset,
-                                   transform.rotation * Quaternion.Euler(90f, 0f, 0f),
-                                   arrowSize, EventType.Repaint);
-            // Z
-            Handles.ArrowHandleCap(2, transform.position + gizmoOffset,
-                                   transform.rotation,
-                                   arrowSize, EventType.Repaint);
-
-            var prevMatrix = Gizmos.matrix;
-            Gizmos.matrix = Matrix4x4.TRS(transform.position + gizmoOffset, transform.rotation, Vector3.zero);
-            Gizmos.DrawLine(Vector3.zero, Vector3.right * axisLength);
-            Gizmos.DrawLine(Vector3.zero, Vector3.up * axisLength);
-            Gizmos.DrawLine(Vector3.zero, Vector3.forward * axisLength);
-            Gizmos.matrix = prevMatrix;
-#endif
-        }
-
-        private void DrawShape(Shape shape)
-        {
-            Vector3 center = Vector3.zero;
-            switch (shape)
+            switch (shapeType)
             {
-                case Shape.Sphere:
-                    Gizmos.color = gizmoColor;
-                    Gizmos.DrawSphere(center, gizmoScale);
-                    Gizmos.DrawWireSphere(center, gizmoScale);
+                case GizmoShape.Cube:
+                    Gizmos.DrawWireCube(Vector3.zero, Vector3.one * size);
                     break;
-                case Shape.Box:
-                    Gizmos.color = gizmoColor;
-                    Gizmos.DrawCube(center, boxSize * gizmoScale);
-                    Gizmos.DrawWireCube(center, boxSize * gizmoScale);
+                case GizmoShape.Sphere:
+                    Gizmos.DrawWireSphere(Vector3.zero, size);
                     break;
-                case Shape.SphereWire:
-                    Gizmos.color = gizmoColor;
-                    Gizmos.DrawWireSphere(center, gizmoScale);
-                    break;
-                case Shape.BoxWire:
-                    Gizmos.color = gizmoColor;
-                    Gizmos.DrawWireCube(center, boxSize * gizmoScale);
+                case GizmoShape.Rect:
+                    Gizmos.DrawWireCube(Vector3.zero, rectSize * size);
                     break;
             }
         }
 
-        private void DrawColliderBounds(bool selected)
+        private void DrawShape(Color outlineColor)
         {
-            var active = GetActiveCollider();
-            if (active == null || !active.enabled) return;
-
-            Matrix4x4 prevMatrix = Gizmos.matrix;
-            Gizmos.matrix = Matrix4x4.TRS(transform.position + gizmoOffset, transform.rotation, transform.lossyScale);
-
-            Color outline = selected ? Color.yellow :
-                            new Color(gizmoColor.r, gizmoColor.g, gizmoColor.b, 1f);
-            Color fill = selected ? Color.clear : gizmoColor;
-
-            Gizmos.color = outline;
-            if (active is BoxCollider box)
+            switch (shapeType)
             {
-                Gizmos.DrawWireCube(box.center, box.size);
-                if (fill.a > 0f)
+                case GizmoShape.Cube:
+                    Gizmos.color = outlineColor;
+                    Gizmos.DrawWireCube(Vector3.zero, Vector3.one * size);
+                    Gizmos.color = color;
+                    Gizmos.DrawCube(Vector3.zero, Vector3.one * size);
+                    break;
+
+                case GizmoShape.Sphere:
+                    Gizmos.color = outlineColor;
+                    Gizmos.DrawWireSphere(Vector3.zero, size);
+                    Gizmos.color = color;
+                    Gizmos.DrawSphere(Vector3.zero, size);
+                    break;
+
+                case GizmoShape.Rect:
+                    Gizmos.color = outlineColor;
+                    Gizmos.DrawWireCube(Vector3.zero, rectSize * size);
+                    Gizmos.color = color;
+                    Gizmos.DrawCube(Vector3.zero, rectSize * size);
+                    break;
+            }
+        }
+
+        private void DrawColliders(bool selected)
+        {
+            Color outlineColor = selected ? Color.yellow : new(color.r, color.g, color.b, 1);
+
+            foreach (var col in _colliders)
+            {
+                if (!col || !col.enabled) continue;
+                Gizmos.matrix = transform.localToWorldMatrix;
+
+                switch (col)
                 {
-                    Gizmos.color = fill;
-                    Gizmos.DrawCube(box.center, box.size);
+                    case BoxCollider box:
+                        Gizmos.color = outlineColor;
+                        Gizmos.DrawWireCube(box.center, box.size);
+                        if (!selected)
+                        {
+                            Gizmos.color = color;
+                            Gizmos.DrawCube(box.center, box.size);
+                        }
+                        break;
+
+                    case SphereCollider sphere:
+                        Gizmos.color = outlineColor;
+                        Gizmos.DrawWireSphere(sphere.center, sphere.radius);
+                        if (!selected)
+                        {
+                            Gizmos.color = color;
+                            Gizmos.DrawSphere(sphere.center, sphere.radius);
+                        }
+                        break;
+
+                    case CapsuleCollider capsule:
+                        DrawCapsule(capsule, color, selected);
+                        break;
+
+                    case MeshCollider mesh when mesh.sharedMesh != null:
+                        Gizmos.color = outlineColor;
+                        Gizmos.DrawWireMesh(mesh.sharedMesh);
+                        if (!selected)
+                        {
+                            Gizmos.color = color;
+                            Gizmos.DrawMesh(mesh.sharedMesh);
+                        }
+                        break;
                 }
             }
-            else if (active is SphereCollider sphere)
-            {
-                Gizmos.DrawWireSphere(sphere.center, sphere.radius);
-                if (fill.a > 0f)
-                {
-                    Gizmos.color = fill;
-                    Gizmos.DrawSphere(sphere.center, sphere.radius);
-                }
-            }
-            else if (active is CapsuleCollider capsule)
-            {
-                Vector3 center = capsule.center;
-                float radius = capsule.radius;
-                float height = Mathf.Max(capsule.height, radius * 2f);
-                int dir = capsule.direction;
-                Vector3 axis = Vector3.up;
-                if (dir == 0) axis = Vector3.right;
-                else if (dir == 2) axis = Vector3.forward;
-                float half = (height * 0.5f) - radius;
-                Vector3 a = center + axis * half;
-                Vector3 b = center - axis * half;
-                Gizmos.DrawWireSphere(a, radius);
-                Gizmos.DrawWireSphere(b, radius);
-                Vector3 bodyCenter = (a + b) * 0.5f;
-                Vector3 bodySize = Vector3.one * (radius * 2f);
-                if (dir == 0) bodySize = new Vector3(height - radius * 2f, radius * 2f, radius * 2f);
-                else if (dir == 1) bodySize = new Vector3(radius * 2f, height - radius * 2f, radius * 2f);
-                else if (dir == 2) bodySize = new Vector3(radius * 2f, radius * 2f, height - radius * 2f);
-                Gizmos.DrawWireCube(bodyCenter, bodySize);
-            }
-            else
-            {
-                Gizmos.matrix = Matrix4x4.identity;
-                var bounds = active.bounds;
-                Gizmos.DrawWireCube(bounds.center, bounds.size);
-            }
-
-            Gizmos.matrix = prevMatrix;
         }
 
-        private void DrawShapeLabel()
+        private void DrawCapsule(CapsuleCollider capsule, Color col, bool selected)
         {
-            if (useColliderBounds && GetActiveCollider() != null) return;
+            Gizmos.color = selected ? Color.yellow : col;
 
-            Vector3 worldPos = transform.position + gizmoOffset;
-            string label = "";
-            switch (gizmoShape)
-            {
-                case Shape.Sphere:
-                case Shape.SphereWire:
-                    label = $"Radius: {gizmoScale:F2}";
-                    break;
-                case Shape.Box:
-                case Shape.BoxWire:
-                    label = $"Size: {boxSize.x * gizmoScale:F2}, {boxSize.y * gizmoScale:F2}, {boxSize.z * gizmoScale:F2}";
-                    break;
-            }
+            Vector3 center = capsule.center;
+            float radius = capsule.radius;
+            float height = capsule.height;
+            int dir = capsule.direction;
+
+            Vector3 axis = dir == 0 ? Vector3.right : dir == 1 ? Vector3.up : Vector3.forward;
+            float cylinderHeight = Mathf.Max(0, height - 2 * radius);
+
+            Vector3 top = center + axis * (cylinderHeight / 2);
+            Vector3 bottom = center - axis * (cylinderHeight / 2);
+
+            Gizmos.DrawWireSphere(top, radius);
+            Gizmos.DrawWireSphere(bottom, radius);
         }
+#endif
     }
-
-#if UNITY_EDITOR
-    [CustomEditor(typeof(GizmosDrawer))]
-    public class GizmoDrawerEditor : Editor
-    {
-        SerializedProperty cachedColliderProp;
-        SerializedProperty useColliderBoundsProp, gizmoShapeProp, gizmoScaleProp, gizmoColorProp;
-        SerializedProperty showLocalAxesProp, axisLengthProp;
-        SerializedProperty drawConnectionLineProp, targetConnectionProp;
-        SerializedProperty boxSizeProp, showInPlayModeProp, gizmoOffsetProp;
-
-        private void OnEnable()
-        {
-            cachedColliderProp = serializedObject.FindProperty("cachedCollider");
-            useColliderBoundsProp = serializedObject.FindProperty(nameof(GizmosDrawer.useColliderBounds));
-            gizmoShapeProp = serializedObject.FindProperty(nameof(GizmosDrawer.gizmoShape));
-            gizmoScaleProp = serializedObject.FindProperty(nameof(GizmosDrawer.gizmoScale));
-            gizmoColorProp = serializedObject.FindProperty(nameof(GizmosDrawer.gizmoColor));
-            showLocalAxesProp = serializedObject.FindProperty(nameof(GizmosDrawer.showLocalAxes));
-            axisLengthProp = serializedObject.FindProperty(nameof(GizmosDrawer.axisLength));
-            drawConnectionLineProp = serializedObject.FindProperty(nameof(GizmosDrawer.drawConnectionLine));
-            targetConnectionProp = serializedObject.FindProperty(nameof(GizmosDrawer.targetConnection));
-            boxSizeProp = serializedObject.FindProperty(nameof(GizmosDrawer.boxSize));
-            showInPlayModeProp = serializedObject.FindProperty(nameof(GizmosDrawer.showInPlayMode));
-            gizmoOffsetProp = serializedObject.FindProperty(nameof(GizmosDrawer.gizmoOffset));
-        }
-
-        public override void OnInspectorGUI()
-        {
-            serializedObject.Update();
-
-            EditorGUILayout.LabelField("Collider Settings", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(cachedColliderProp, new GUIContent("Cached Collider", "Optional custom collider to use for bounds."));
-            EditorGUILayout.PropertyField(useColliderBoundsProp, new GUIContent("Use Collider Bounds", "If true, uses collider bounds instead of manual shape."));
-
-            var drawer = (GizmosDrawer)target;
-            if (drawer.useColliderBounds && (drawer.GetActiveCollider() == null || !drawer.GetActiveCollider().enabled))
-            {
-                EditorGUILayout.HelpBox("Collider bounds enabled but no valid collider found or collider is disabled.", MessageType.Warning);
-            }
-
-            EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Shape Settings", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(gizmoColorProp, new GUIContent("Gizmo Color", "Color of the gizmo outline/fill."));
-            EditorGUILayout.PropertyField(showInPlayModeProp, new GUIContent("Show In Play Mode", "Whether to draw gizmo in Play Mode as well."));
-            EditorGUILayout.PropertyField(gizmoOffsetProp, new GUIContent("Gizmo Offset", "Offset applied to gizmo relative to object position."));
-
-            EditorGUILayout.PropertyField(showLocalAxesProp, new GUIContent("Show Local Axes", "Draw local axes from object origin."));
-            if (showLocalAxesProp.boolValue)
-                EditorGUILayout.PropertyField(axisLengthProp, new GUIContent("Axis Length", "Length of the local axes lines."));
-
-            if (!drawer.useColliderBounds)
-            {
-                EditorGUILayout.PropertyField(gizmoShapeProp, new GUIContent("Gizmo Shape", "Select manual shape to draw."));
-                EditorGUILayout.PropertyField(gizmoScaleProp, new GUIContent("Gizmo Scale", "Scale factor for the shape."));
-
-                if (drawer.gizmoScale <= 0f)
-                {
-                    EditorGUILayout.HelpBox("Gizmo Scale should be positive.", MessageType.Warning);
-                }
-
-                var shape = drawer.gizmoShape;
-                if (shape == GizmosDrawer.Shape.Box || shape == GizmosDrawer.Shape.BoxWire)
-                {
-                    EditorGUILayout.PropertyField(boxSizeProp, new GUIContent("Box Size", "Dimensions of the box before scale."));
-                    if (drawer.boxSize.x <= 0f || drawer.boxSize.y <= 0f || drawer.boxSize.z <= 0f)
-                    {
-                        EditorGUILayout.HelpBox("Box Size components should be positive.", MessageType.Warning);
-                    }
-                }
-            }
-            else
-            {
-                EditorGUILayout.HelpBox("Using collider bounds; manual shape settings are ignored.", MessageType.Info);
-            }
-
-            EditorGUILayout.Space();
-            EditorGUILayout.PropertyField(drawConnectionLineProp, new GUIContent("Draw Connection Line", "Draw a line from this object to targetConnection."));
-            if (drawConnectionLineProp.boolValue)
-                EditorGUILayout.PropertyField(targetConnectionProp, new GUIContent("Target Connection", "Transform to draw line to."));
-
-            serializedObject.ApplyModifiedProperties();
-        }
-
-        private void OnSceneGUI()
-        {
-            var drawer = (GizmosDrawer)target;
-            if (drawer == null) return;
-            if (!drawer.enabled) return;
-
-            if (drawer.useColliderBounds) return;
-            if (drawer.gizmoShape != GizmosDrawer.Shape.Box && drawer.gizmoShape != GizmosDrawer.Shape.BoxWire) return;
-
-            Matrix4x4 matrix = Matrix4x4.TRS(drawer.transform.position + drawer.gizmoOffset, drawer.transform.rotation, drawer.transform.lossyScale);
-            using (new Handles.DrawingScope(matrix))
-            {
-                Handles.color = drawer.gizmoColor;
-
-                float handleSize = HandleUtility.GetHandleSize(drawer.transform.position + drawer.gizmoOffset) * 0.5f;
-
-                Vector3 currentSize = drawer.boxSize;
-                Vector3 newSize = Handles.ScaleHandle(currentSize, Vector3.zero, Quaternion.identity, handleSize);
-
-                if (newSize != currentSize)
-                {
-                    Undo.RecordObject(drawer, "Change Box Size");
-                    newSize = new Vector3(Mathf.Max(0f, newSize.x), Mathf.Max(0f, newSize.y), Mathf.Max(0f, newSize.z));
-                    drawer.boxSize = newSize;
-                    EditorUtility.SetDirty(drawer);
-                }
-            }
-        }
-    }
-#endif
 }
