@@ -80,7 +80,20 @@ public class AutoFocusPreviewWindow
     {
         if (IsYetOpenedWindow(PREVIEW)) return;
         
-        var previewWindow = EditorWindow.GetWindow(typeof(EditorWindow).Assembly.GetType("UnityEditor.PreviewWindow"));
+        // Do NOT create the Preview window if it isn't already open.
+        // Use Resources.FindObjectsOfTypeAll to detect existing instances of the internal PreviewWindow type.
+        var previewType = typeof(EditorWindow).Assembly.GetType("UnityEditor.PreviewWindow");
+        if (previewType == null) return; // type not found for some Unity versions
+
+        UnityEngine.Object[] found = UnityEngine.Resources.FindObjectsOfTypeAll(previewType);
+        if (found == null || found.Length == 0)
+        {
+            // Preview window isn't opened separately (it's likely only available inside the Inspector) - do nothing.
+            return;
+        }
+
+        // Focus the first existing PreviewWindow instance (user opened it manually)
+        var previewWindow = found[0] as EditorWindow;
         if (previewWindow != null)
         {
             previewWindow.Focus();
