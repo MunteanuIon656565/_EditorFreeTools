@@ -12,7 +12,7 @@ public class MaterialFinder
         // Shader-ul de căutat
         Shader targetShader = Shader.Find("Universal Render Pipeline/Lit");
         // Shader-ul înlocuitor
-        Shader replacementShader = Shader.Find("Universal Render Pipeline/Lit Custom");
+        Shader replacementShader = Shader.Find($"Universal Render Pipeline/Lit Custom");
 
         if (targetShader == null || replacementShader == null)
         {

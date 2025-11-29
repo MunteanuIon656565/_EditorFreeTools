@@ -5,7 +5,7 @@ using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-//[InitializeOnLoad] //decomment to enable script
+[InitializeOnLoad] //decomment to enable script
 public class AutoFocusPreviewWindow
 {
     private const string HIERARCHY = "Hierarchy";

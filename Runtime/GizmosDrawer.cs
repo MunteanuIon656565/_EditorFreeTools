@@ -1,3 +1,5 @@
+#if UNITY_EDITOR
+
 using UnityEngine;
 
 namespace GizmosToolkit
@@ -205,3 +207,5 @@ namespace GizmosToolkit
 #endif
     }
 }
+
+#endif
