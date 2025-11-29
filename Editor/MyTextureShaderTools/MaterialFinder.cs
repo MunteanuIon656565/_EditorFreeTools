@@ -1,73 +1,125 @@
 #if UNITY_EDITOR
-
 using UnityEngine;
 using UnityEditor;
 using System.Collections.Generic;
 
-public class MaterialFinder
+public class ShaderReplacementTool : EditorWindow
 {
-    [MenuItem("Tools/Replace Shader in Materials")]
-    public static void ReplaceShaderInMaterials()
+    [System.Serializable]
+    public class ShaderPair
     {
-        // Shader-ul de căutat
-        Shader targetShader = Shader.Find("Universal Render Pipeline/Lit");
-        // Shader-ul înlocuitor
-        Shader replacementShader = Shader.Find($"Universal Render Pipeline/Lit Custom");
+        public string targetShaderName;
+        public string replacementShaderName;
+    }
 
-        if (targetShader == null || replacementShader == null)
+    public List<ShaderPair> shaderPairs = new List<ShaderPair>();
+
+    [MenuItem("Tools/Rendering/Shader Replacement Tool")]
+    public static void ShowWindow()
+    {
+        GetWindow<ShaderReplacementTool>("Shader Replacement Tool");
+    }
+
+    private void OnGUI()
+    {
+        EditorGUILayout.LabelField("Shader Replacement Tool", EditorStyles.boldLabel);
+        EditorGUILayout.Space();
+
+        // Lista shader-pair
+        int removeIndex = -1;
+        for (int i = 0; i < shaderPairs.Count; i++)
         {
-            Debug.LogError("Shader not found! Ensure both target and replacement shaders exist.");
-            return;
+            EditorGUILayout.BeginHorizontal();
+            shaderPairs[i].targetShaderName = EditorGUILayout.TextField("Target Shader", shaderPairs[i].targetShaderName);
+            shaderPairs[i].replacementShaderName = EditorGUILayout.TextField("Replacement Shader", shaderPairs[i].replacementShaderName);
+            if (GUILayout.Button("X", GUILayout.Width(20)))
+            {
+                removeIndex = i;
+            }
+            EditorGUILayout.EndHorizontal();
         }
 
-        // Lista de materiale găsite
-        List<Object> materialsUsingShader = new List<Object>();
+        if (removeIndex >= 0)
+            shaderPairs.RemoveAt(removeIndex);
 
+        if (GUILayout.Button("Add Shader Pair"))
+        {
+            shaderPairs.Add(new ShaderPair());
+        }
+
+        EditorGUILayout.Space();
+        if (GUILayout.Button("Replace Shaders"))
+        {
+            ReplaceShaders();
+        }
+    }
+
+    private void ReplaceShaders()
+    {
+        List<Object> modifiedMaterials = new List<Object>();
         string[] guids = AssetDatabase.FindAssets("t:Material");
+
         foreach (string guid in guids)
         {
             string path = AssetDatabase.GUIDToAssetPath(guid);
             Material mat = AssetDatabase.LoadAssetAtPath<Material>(path);
 
-            if (mat != null && mat.shader == targetShader)
+            if (mat == null) continue;
+
+            foreach (var pair in shaderPairs)
             {
-                Debug.Log($"Material using {targetShader.name}: {path}");
+                if (string.IsNullOrEmpty(pair.targetShaderName) || string.IsNullOrEmpty(pair.replacementShaderName))
+                    continue;
 
-                // Verifică dacă materialul este read-only
-                if (AssetDatabase.IsOpenForEdit(mat))
-                {
-                    // Modifică shader-ul direct
-                    mat.shader = replacementShader;
-                }
-                else
-                {
-                    // Creează o copie a materialului
-                    string newPath = path.Replace(".mat", "_Modified.mat");
-                    Material newMaterial = new Material(mat);
-                    newMaterial.shader = replacementShader;
+                Shader targetShader = Shader.Find(pair.targetShaderName);
+                Shader replacementShader = Shader.Find(pair.replacementShaderName);
 
-                    AssetDatabase.CreateAsset(newMaterial, newPath);
-                    Debug.Log($"Created modified material: {newPath}");
+                if (targetShader == null)
+                {
+                    Debug.LogWarning($"Target shader not found: {pair.targetShaderName}");
+                    continue;
                 }
 
-                materialsUsingShader.Add(mat);
+                if (replacementShader == null)
+                {
+                    Debug.LogWarning($"Replacement shader not found: {pair.replacementShaderName}");
+                    continue;
+                }
+
+                if (mat.shader == targetShader)
+                {
+                    if (AssetDatabase.IsOpenForEdit(mat))
+                    {
+                        mat.shader = replacementShader;
+                        Debug.Log($"Replaced shader in: {path}");
+                    }
+                    else
+                    {
+                        string newPath = path.Replace(".mat", "_Modified.mat");
+                        Material newMat = new Material(mat);
+                        newMat.shader = replacementShader;
+                        AssetDatabase.CreateAsset(newMat, newPath);
+                        Debug.Log($"Created modified material: {newPath}");
+                    }
+
+                    modifiedMaterials.Add(mat);
+                    break; // trece la următorul material
+                }
             }
         }
 
-        // Selectează materialele modificate în Project View
-        if (materialsUsingShader.Count > 0)
+        if (modifiedMaterials.Count > 0)
         {
-            Selection.objects = materialsUsingShader.ToArray();
-            Debug.Log($"Processed {materialsUsingShader.Count} materials. Check Project View for duplicates.");
+            Selection.objects = modifiedMaterials.ToArray();
+            Debug.Log($"Processed {modifiedMaterials.Count} materials.");
         }
         else
         {
-            Debug.LogWarning($"No materials found using the shader: {targetShader.name}");
+            Debug.LogWarning("No materials matched the shader pairs.");
         }
 
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
     }
 }
-
 #endif
