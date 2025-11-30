@@ -73,15 +73,23 @@ public class AutoFocusPreviewWindow
     private static void FocusOnSceneView()
     {
         if (IsYetOpenedWindow(SCENE)) return;
-        EditorApplication.ExecuteMenuItem("Window/General/Scene");
+        
+        var asm = typeof(EditorWindow).Assembly;
+        var sceneType = asm.GetType("UnityEditor.SceneView") ?? asm.GetType("UnityEditor.SceneWindow");
+        if (sceneType == null) return;
+
+        Object[] found = Resources.FindObjectsOfTypeAll(sceneType);
+
+        if (found != null && found.Length > 0)
+        {
+            (found[0] as EditorWindow)?.ShowTab();
+        }
     }
 
     private static void FocusOnPreviewWindow()
     {
         if (IsYetOpenedWindow(PREVIEW)) return;
         
-        // Do NOT create the Preview window if it isn't already open.
-        // Use Resources.FindObjectsOfTypeAll to detect existing instances of the internal PreviewWindow type.
         var previewType = typeof(EditorWindow).Assembly.GetType("UnityEditor.PreviewWindow");
         if (previewType == null) return; // type not found for some Unity versions
 
@@ -96,7 +104,7 @@ public class AutoFocusPreviewWindow
         var previewWindow = found[0] as EditorWindow;
         if (previewWindow != null)
         {
-            previewWindow.Focus();
+            previewWindow.ShowTab();
         }
     }
 

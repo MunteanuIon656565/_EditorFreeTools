@@ -1,58 +1,57 @@
 #if UNITY_EDITOR
 
 using System;
-using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-[InitializeOnLoad] // Decomment to enable script
-public class AutoFocusInspector
+namespace Plugins._EditorFreeTools.Editor.MyEditorImproves
 {
-    [Obsolete("Obsolete")]
-    static AutoFocusInspector()
+    [InitializeOnLoad] 
+    [DefaultExecutionOrder(-1000)]
+    public class AutoFocusInspector
     {
-        Selection.selectionChanged += OnSelectionChanged;
-    }
-
-    [Obsolete("Obsolete")]
-    private static void OnSelectionChanged()
-    {
-        Object selectedObject = Selection.activeObject;
-        if (selectedObject == null) return;
-
-        // Focus Inspector whenever an object is selected from Hierarchy or Project window
-        FocusOnInspector();
-    }
-
-    private static async void FocusOnInspector()
-    {
-        // Get the Inspector window
-        var inspectorType = typeof(EditorWindow).Assembly.GetType("UnityEditor.InspectorWindow");
-        if (inspectorType == null) return; // Type not found for some Unity versions
-
-        Object[] found = Resources.FindObjectsOfTypeAll(inspectorType);
-        if (found == null || found.Length == 0)
+        [Obsolete("Obsolete")]
+        static AutoFocusInspector()
         {
-            // Inspector window isn't opened - open it
-            EditorApplication.ExecuteMenuItem("Window/General/Inspector");
-            return;
+            Selection.selectionChanged += OnSelectionChanged;
         }
 
-        // Focus the first existing Inspector instance (the main one)
-        foreach (Object obj in found)
+        [Obsolete("Obsolete")]
+        private static void OnSelectionChanged()
         {
-            var inspectorWindow = obj as EditorWindow;
-            if (inspectorWindow != null && inspectorWindow.GetType() == inspectorType)
+            Object selectedObject = Selection.activeObject;
+            if (selectedObject == null) return;
+
+            FocusOnInspector();
+        }
+
+        private static void FocusOnInspector()
+        {
+            var inspectorType = typeof(EditorWindow).Assembly.GetType("UnityEditor.InspectorWindow");
+            if (inspectorType == null) return; // Type not found for some Unity versions
+
+            Object[] found = Resources.FindObjectsOfTypeAll(inspectorType);
+            if (found == null || found.Length == 0)
             {
-                await Task.Delay(100);
-                inspectorWindow.Focus();
-                break;
+                EditorApplication.ExecuteMenuItem("Window/General/Inspector");
+                return;
             }
+
+            // Focus the first existing Inspector instance (the main one)
+            foreach (Object obj in found)
+            {
+                var inspectorWindow = obj as EditorWindow;
+                if (inspectorWindow != null && inspectorWindow.GetType() == inspectorType)
+                {
+                    inspectorWindow.ShowTab();
+
+                    break;
+                }
+            }
+            
         }
-        
     }
 }
 
 #endif
-
