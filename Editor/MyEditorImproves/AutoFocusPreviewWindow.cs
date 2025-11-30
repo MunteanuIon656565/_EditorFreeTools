@@ -12,9 +12,15 @@ public class AutoFocusPreviewWindow
     private const string SCENE = "Scene";
     private const string PREVIEW = "Preview";
     private const string PROJECT = "Project";
+    private const string PREF_KEY_LAST_OPENED = "AutoFocusPreviewWindow.lastOpenedWindow";
     
-    private static string lastOpenedWindow = "";
+    private static string LastOpenedWindow
+    {
+        get => EditorPrefs.GetString(PREF_KEY_LAST_OPENED, "");
+        set => EditorPrefs.SetString(PREF_KEY_LAST_OPENED, value ?? "");
+    }
 
+    
     [Obsolete("Obsolete")]
     static AutoFocusPreviewWindow()
     {
@@ -112,16 +118,17 @@ public class AutoFocusPreviewWindow
     {
         EditorWindow focusedWindow = EditorWindow.focusedWindow;
 
+        // Consider different if focused window exists and last saved window differs or is empty
         bool isFocusedWindowDifferent = focusedWindow != null 
-                                        && (!lastOpenedWindow.Equals(windowTitle) || lastOpenedWindow.Equals(""));
+                                        && (LastOpenedWindow != windowTitle || string.IsNullOrEmpty(LastOpenedWindow));
         
         if (windowTitle.Equals(PREVIEW))
         {
-            lastOpenedWindow = SCENE;
+            LastOpenedWindow = SCENE;
         }
         else if (windowTitle.Equals(SCENE))
         {
-            lastOpenedWindow = PREVIEW;
+            LastOpenedWindow = PREVIEW;
         }
 
         return isFocusedWindowDifferent;
