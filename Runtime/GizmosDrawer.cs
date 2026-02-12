@@ -1,6 +1,7 @@
 #if UNITY_EDITOR
 
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace GizmosToolkit
 {
@@ -12,7 +13,8 @@ namespace GizmosToolkit
         [Header("General Settings")]
         public bool useColliders;
         public GizmoShape shapeType;
-        [Min(0)] public float size = 0.03f;
+        [FormerlySerializedAs("size")] [Min(0)] 
+        public float sizeRadius = 1f;
         public Color color = Color.blue;
 
         [Header("Axis Settings")]
@@ -100,13 +102,13 @@ namespace GizmosToolkit
             switch (shapeType)
             {
                 case GizmoShape.Cube:
-                    Gizmos.DrawWireCube(Vector3.zero, Vector3.one * size);
+                    Gizmos.DrawWireCube(Vector3.zero, Vector3.one * sizeRadius);
                     break;
                 case GizmoShape.Sphere:
-                    Gizmos.DrawWireSphere(Vector3.zero, size);
+                    Gizmos.DrawWireSphere(Vector3.zero, sizeRadius);
                     break;
                 case GizmoShape.Rect:
-                    Gizmos.DrawWireCube(Vector3.zero, rectSize * size);
+                    Gizmos.DrawWireCube(Vector3.zero, rectSize * sizeRadius);
                     break;
             }
         }
@@ -117,23 +119,23 @@ namespace GizmosToolkit
             {
                 case GizmoShape.Cube:
                     Gizmos.color = outlineColor;
-                    Gizmos.DrawWireCube(Vector3.zero, Vector3.one * size);
+                    Gizmos.DrawWireCube(Vector3.zero, Vector3.one * sizeRadius);
                     Gizmos.color = color;
-                    Gizmos.DrawCube(Vector3.zero, Vector3.one * size);
+                    Gizmos.DrawCube(Vector3.zero, Vector3.one * sizeRadius);
                     break;
 
                 case GizmoShape.Sphere:
                     Gizmos.color = outlineColor;
-                    Gizmos.DrawWireSphere(Vector3.zero, size);
+                    Gizmos.DrawWireSphere(Vector3.zero, sizeRadius);
                     Gizmos.color = color;
-                    Gizmos.DrawSphere(Vector3.zero, size);
+                    Gizmos.DrawSphere(Vector3.zero, sizeRadius);
                     break;
 
                 case GizmoShape.Rect:
                     Gizmos.color = outlineColor;
-                    Gizmos.DrawWireCube(Vector3.zero, rectSize * size);
+                    Gizmos.DrawWireCube(Vector3.zero, rectSize * sizeRadius);
                     Gizmos.color = color;
-                    Gizmos.DrawCube(Vector3.zero, rectSize * size);
+                    Gizmos.DrawCube(Vector3.zero, rectSize * sizeRadius);
                     break;
             }
         }
