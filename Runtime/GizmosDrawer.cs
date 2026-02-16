@@ -3,7 +3,7 @@
 using UnityEngine;
 using UnityEngine.Serialization;
 
-namespace GizmosToolkit
+namespace Plugins._EditorFreeTools.Runtime
 {
     [AddComponentMenu("GizmosToolkit/Gizmos Drawer")]
     public class GizmosDrawer : MonoBehaviour

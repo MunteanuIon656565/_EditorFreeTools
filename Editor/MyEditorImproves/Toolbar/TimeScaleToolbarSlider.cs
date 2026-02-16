@@ -2,21 +2,24 @@
 using UnityEditor.Toolbars;
 using UnityEngine;
 
-public class TimeScaleToolbarSlider
+namespace Plugins._EditorFreeTools.Editor.MyEditorImproves.Toolbar
 {
-    const float k_MinTimeScale = 0f;
-    const float k_MaxTimeScale = 10f;
+    public class TimeScaleToolbarSlider
+    {
+        private const float KMinTimeScale = 0f;
+        private const float KMaxTimeScale = 10f;
 
-    [MainToolbarElement("My Tools/Time Scale Slider", defaultDockPosition = MainToolbarDockPosition.Middle)]
-    public static MainToolbarElement TimeSlider()
-    {
-        var content = new MainToolbarContent("Time Scale", "Time Scale");
-        return new MainToolbarSlider(content, Time.timeScale, k_MinTimeScale, k_MaxTimeScale, OnSliderValueChanged);
-    }
-    static void OnSliderValueChanged(float newValue)
-    {
-        if (!Application.isPlaying) return;
-        Time.timeScale = newValue;
+        [MainToolbarElement("My Tools/Time Scale Slider", defaultDockPosition = MainToolbarDockPosition.Middle)]
+        public static MainToolbarElement TimeSlider()
+        {
+            var content = new MainToolbarContent("Time Scale", "Time Scale");
+            return new MainToolbarSlider(content, Time.timeScale, KMinTimeScale, KMaxTimeScale, OnSliderValueChanged);
+        }
+        static void OnSliderValueChanged(float newValue)
+        {
+            if (!Application.isPlaying) return;
+            Time.timeScale = newValue;
+        }
     }
 }
 #endif
