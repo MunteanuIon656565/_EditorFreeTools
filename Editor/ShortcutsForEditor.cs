@@ -1,10 +1,9 @@
-﻿using System.IO;
-using System.Reflection;
+﻿using System.Reflection;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 
-namespace Plugins._EditorTools.Editor
+namespace Plugins._EditorFreeTools.Editor
 {
     public class ShortcutsForEditor : EditorWindow
     {
@@ -26,12 +25,20 @@ namespace Plugins._EditorTools.Editor
                 return;
             }
 
-            // Obține masca curentă a vizibilității layer-urilor
+            // Toggle the layer in the SceneView camera culling mask (supported API)
             SceneView sceneView = SceneView.lastActiveSceneView;
             if (sceneView == null) return;
 
-            Tools.visibleLayers ^= (1 << layer); // Comută vizibilitatea layer-ului
-            SceneView.RepaintAll(); // Actualizează vizualizarea Scene
+            var cam = sceneView.camera;
+            if (cam != null)
+            {
+                cam.cullingMask ^= (1 << layer);
+                SceneView.RepaintAll(); // Refresh Scene view
+            }
+            else
+            {
+                Debug.LogWarning("No SceneView camera available to toggle layer visibility.");
+            }
         }
         
         
@@ -124,14 +131,14 @@ namespace Plugins._EditorTools.Editor
         
         
         
-    private static bool toggleLayout;
+    private static bool _toggleLayout;
 
     // Încarcă layout-ul specificat prin combinația de taste Alt + A
     [MenuItem("Tools/Shortcuts/Switch Between Two Layout _&S")]
     private static void SwitchToCustomLayout()
     {
         // Dacă toggle este fals, atunci salvăm layout-ul curent înainte de a comuta la animation layout
-        if (!toggleLayout)
+        if (!_toggleLayout)
         {
             EditorApplication.ExecuteMenuItem("Window/Layouts/Save Layout...");
             SimulateEnterKey();
@@ -147,7 +154,7 @@ namespace Plugins._EditorTools.Editor
         }
 
         // Schimbăm starea toggle-ului pentru a alterna între cele două layout-uri
-        toggleLayout = !toggleLayout;
+        _toggleLayout = !_toggleLayout;
     }
 
     private static void SimulateEnterKey()
