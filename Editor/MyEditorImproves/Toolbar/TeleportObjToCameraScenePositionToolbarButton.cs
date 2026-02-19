@@ -1,3 +1,4 @@
+#if UNITY_EDITOR
 using Plugins._EditorFreeTools.Runtime;
 using UnityEditor;
 using UnityEditor.Toolbars;
@@ -31,3 +32,4 @@ namespace Plugins._EditorFreeTools.Editor.MyEditorImproves.Toolbar
         }
     }
 }
+#endif
