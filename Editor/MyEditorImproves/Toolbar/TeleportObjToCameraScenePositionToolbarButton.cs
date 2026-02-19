@@ -1,4 +1,4 @@
-#if UNITY_EDITOR
+#if UNITY_6000_3_OR_NEWER
 using Plugins._EditorFreeTools.Runtime;
 using UnityEditor;
 using UnityEditor.Toolbars;
