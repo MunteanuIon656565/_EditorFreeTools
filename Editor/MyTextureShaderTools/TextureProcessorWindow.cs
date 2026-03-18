@@ -40,6 +40,7 @@ public class TextureProcessorWindow : EditorWindow
                     { "Mip Streaming", false },
                     { "Mip Streaming Priority", false },
                     { "Virtual Texturing", false },
+                    { "Generate Mip Map", false },
                     { "Mip Map Bias", false }
                 },
                 size = TextureSize._1024x1024,
@@ -54,6 +55,7 @@ public class TextureProcessorWindow : EditorWindow
                 streamingMipmaps = true,
                 streamingMipmapsPriority = 0,
                 vtOnly = false,
+                generateMipMap = true,
                 mipMapBias = -0.5f // default in textures is -100f
             };
         }
@@ -130,6 +132,8 @@ public class TextureProcessorWindow : EditorWindow
                 textureSettings[type].streamingMipmapsPriority = EditorGUILayout.IntField("Mip Streaming Priority:", textureSettings[type].streamingMipmapsPriority);
             if (textureSettings[type].propertiesToApply["Virtual Texturing"])
                 textureSettings[type].vtOnly = EditorGUILayout.Toggle("Virtual Texturing:", textureSettings[type].vtOnly);
+            if (textureSettings[type].propertiesToApply["Generate Mip Map"])
+                textureSettings[type].generateMipMap = EditorGUILayout.Toggle("Generate Mip Map:", textureSettings[type].generateMipMap);
             if (textureSettings[type].propertiesToApply["Mip Map Bias"])
                 textureSettings[type].mipMapBias = EditorGUILayout.FloatField("Mip Map Bias:", textureSettings[type].mipMapBias);
 
@@ -206,12 +210,16 @@ public class TextureProcessorWindow : EditorWindow
                     if (settings.propertiesToApply["Aniso Level"])
                         textureImporter.anisoLevel = settings.anisoLevel;
 
+                    if (settings.propertiesToApply["Generate Mip Map"])
+                        textureImporter.mipmapEnabled = settings.generateMipMap;
+
                     if (settings.propertiesToApply["Mip Streaming"] && textureImporter.mipmapEnabled)
                         textureImporter.streamingMipmaps = settings.streamingMipmaps;
                     if (settings.propertiesToApply["Mip Streaming Priority"] && textureImporter.mipmapEnabled)
                         textureImporter.streamingMipmapsPriority = settings.streamingMipmapsPriority;
                     if (settings.propertiesToApply["Virtual Texturing"])
                         textureImporter.vtOnly = settings.vtOnly;
+
 
                     if (settings.propertiesToApply["Mip Map Bias"])
                         textureImporter.mipMapBias = settings.mipMapBias;
@@ -309,6 +317,7 @@ public class TextureProcessorWindow : EditorWindow
         public bool streamingMipmaps;
         public int streamingMipmapsPriority;
         public bool vtOnly;
+        public bool generateMipMap;
         public float mipMapBias;
     }
 }
