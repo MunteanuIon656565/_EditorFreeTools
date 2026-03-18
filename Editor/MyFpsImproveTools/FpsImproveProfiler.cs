@@ -518,6 +518,7 @@ namespace Tools.FpsImproveProfiler
         Materials_AlphaClippingEnabled,
         StaticShadowCaster_Enabled,
         Particles_WithSelectedShader,          // now supports replace
+        Materials_ReceiveShadowsOn,            // new optimization for material receive shadows
     }
 
     internal enum FindingKind
@@ -692,6 +693,7 @@ namespace Tools.FpsImproveProfiler
             Register(() => new Rule_MaterialsAlphaClippingEnabled());
             Register(() => new Rule_StaticShadowCasterEnabled());
             Register(() => new Rule_ParticlesWithSelectedShader_Replace());
+            Register(() => new Rule_MaterialsReceiveShadowsOn());
         }
 
         public void Register(Func<IOptimizationRule> factory)
@@ -962,6 +964,49 @@ namespace Tools.FpsImproveProfiler
 
                 Undo.RecordObject(mat, "Set Alpha Clipping");
                 MaterialHeuristics.SetAlphaClipping(mat, context.Settings.SetBooleanValue);
+                EditorUtility.SetDirty(mat);
+            }
+        }
+    }
+
+    internal sealed class Rule_MaterialsReceiveShadowsOn : IOptimizationRule
+    {
+        public OptimizationRuleType Type => OptimizationRuleType.Materials_ReceiveShadowsOn;
+        public string DisplayName => "Materials: Receive Shadows = ON";
+        public string Description => "Găsește toate materialele care au Receive Shadows activ și îți permite să le dezactivezi.";
+
+        public void DrawSettingsGUI(ref RuleSettings settings)
+        {
+            EditorGUILayout.LabelField("Optimize action", EditorStyles.boldLabel);
+            settings.SetBooleanValue = EditorGUILayout.ToggleLeft("Set Receive Shadows (ON/OFF)", settings.SetBooleanValue);
+            EditorGUILayout.HelpBox("Dacă e bifat => Receive Shadows ON pe materiale. Dacă e debifat => OFF.", MessageType.Info);
+        }
+
+        public IEnumerable<FindingItem> Scan(RuleContext context)
+        {
+            var id = 1;
+
+            foreach (var pair in SceneQuery.FindRendererMaterialPairs())
+            {
+                var r = pair.Renderer;
+                var mat = pair.Material;
+                if (r == null || mat == null) continue;
+
+                if (!MaterialHeuristics.IsReceiveShadowsEnabled(mat)) continue;
+
+                yield return FindingItem.FromMaterial(id++, mat, r, pair.MaterialIndex, "Receive Shadows = ON");
+            }
+        }
+
+        public void Apply(RuleContext context, IReadOnlyList<FindingItem> selected)
+        {
+            foreach (var it in selected)
+            {
+                var mat = it.Material;
+                if (mat == null) continue;
+
+                Undo.RecordObject(mat, "Set Material Receive Shadows");
+                MaterialHeuristics.SetReceiveShadows(mat, context.Settings.SetBooleanValue);
                 EditorUtility.SetDirty(mat);
             }
         }
@@ -1699,6 +1744,39 @@ namespace Tools.FpsImproveProfiler
 
             if (enabled) mat.EnableKeyword("_ALPHATEST_ON");
             else mat.DisableKeyword("_ALPHATEST_ON");
+        }
+
+        private static readonly int P_ReceiveShadows = Shader.PropertyToID("_ReceiveShadows");
+
+        public static bool IsReceiveShadowsEnabled(Material mat)
+        {
+            if (mat == null) return false;
+
+            // Check for _ReceiveShadows property (common in URP)
+            if (mat.HasProperty(P_ReceiveShadows))
+                return mat.GetFloat(P_ReceiveShadows) > 0.5f;
+
+            // Check for _RECEIVE_SHADOWS_OFF keyword (if disabled)
+            if (mat.IsKeywordEnabled("_RECEIVE_SHADOWS_OFF"))
+                return false;
+
+            // Default to true if property/keyword not found
+            return true;
+        }
+
+        public static void SetReceiveShadows(Material mat, bool enabled)
+        {
+            if (mat == null) return;
+
+            // Set _ReceiveShadows property if available
+            if (mat.HasProperty(P_ReceiveShadows))
+                mat.SetFloat(P_ReceiveShadows, enabled ? 1f : 0f);
+
+            // Manage keyword
+            if (enabled)
+                mat.DisableKeyword("_RECEIVE_SHADOWS_OFF");
+            else
+                mat.EnableKeyword("_RECEIVE_SHADOWS_OFF");
         }
     }
 

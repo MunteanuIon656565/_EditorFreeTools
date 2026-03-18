@@ -34,7 +34,14 @@ public class TextureProcessorWindow : EditorWindow
                     { "Readable", false },
                     { "sRGB", false },
                     { "Alpha Source", false },
-                    { "Alpha Is Transparency", false }
+                    { "Alpha Is Transparency", false },
+                    { "Filter Mode", false },
+                    { "Aniso Level", false },
+                    { "Mip Streaming", false },
+                    { "Mip Streaming Priority", false },
+                    { "Virtual Texturing", false },
+                    { "Generate Mip Map", false },
+                    { "Mip Map Bias", false }
                 },
                 size = TextureSize._1024x1024,
                 compression = TextureCompression.Compressed,
@@ -42,7 +49,14 @@ public class TextureProcessorWindow : EditorWindow
                 textureIsRead = TextureIsRead.Disabled,
                 sRGB = true,
                 alphaSource = TextureImporterAlphaSource.FromInput,
-                alphaIsTransparency = false
+                alphaIsTransparency = false,
+                filterMode = FilterMode.Bilinear,
+                anisoLevel = 1,
+                streamingMipmaps = true,
+                streamingMipmapsPriority = 0,
+                vtOnly = false,
+                generateMipMap = true,
+                mipMapBias = -0.5f // default in textures is -100f
             };
         }
     }
@@ -108,6 +122,20 @@ public class TextureProcessorWindow : EditorWindow
                 textureSettings[type].alphaSource = (TextureImporterAlphaSource)EditorGUILayout.EnumPopup("Alpha Source:", textureSettings[type].alphaSource);
             if (textureSettings[type].propertiesToApply["Alpha Is Transparency"])
                 textureSettings[type].alphaIsTransparency = EditorGUILayout.Toggle("Alpha Is Transparency:", textureSettings[type].alphaIsTransparency);
+            if (textureSettings[type].propertiesToApply["Filter Mode"])
+                textureSettings[type].filterMode = (FilterMode)EditorGUILayout.EnumPopup("Filter Mode:", textureSettings[type].filterMode);
+            if (textureSettings[type].propertiesToApply["Aniso Level"])
+                textureSettings[type].anisoLevel = EditorGUILayout.IntSlider("Aniso Level:", textureSettings[type].anisoLevel, 0, 16);
+            if (textureSettings[type].propertiesToApply["Mip Streaming"])
+                textureSettings[type].streamingMipmaps = EditorGUILayout.Toggle("Mip Streaming:", textureSettings[type].streamingMipmaps);
+            if (textureSettings[type].propertiesToApply["Mip Streaming Priority"])
+                textureSettings[type].streamingMipmapsPriority = EditorGUILayout.IntField("Mip Streaming Priority:", textureSettings[type].streamingMipmapsPriority);
+            if (textureSettings[type].propertiesToApply["Virtual Texturing"])
+                textureSettings[type].vtOnly = EditorGUILayout.Toggle("Virtual Texturing:", textureSettings[type].vtOnly);
+            if (textureSettings[type].propertiesToApply["Generate Mip Map"])
+                textureSettings[type].generateMipMap = EditorGUILayout.Toggle("Generate Mip Map:", textureSettings[type].generateMipMap);
+            if (textureSettings[type].propertiesToApply["Mip Map Bias"])
+                textureSettings[type].mipMapBias = EditorGUILayout.FloatField("Mip Map Bias:", textureSettings[type].mipMapBias);
 
             GUILayout.Space(10);
         }
@@ -177,6 +205,24 @@ public class TextureProcessorWindow : EditorWindow
                         textureImporter.alphaSource = settings.alphaSource;
                     if (settings.propertiesToApply["Alpha Is Transparency"])
                         textureImporter.alphaIsTransparency = settings.alphaIsTransparency;
+                    if (settings.propertiesToApply["Filter Mode"])
+                        textureImporter.filterMode = settings.filterMode;
+                    if (settings.propertiesToApply["Aniso Level"])
+                        textureImporter.anisoLevel = settings.anisoLevel;
+
+                    if (settings.propertiesToApply["Generate Mip Map"])
+                        textureImporter.mipmapEnabled = settings.generateMipMap;
+
+                    if (settings.propertiesToApply["Mip Streaming"] && textureImporter.mipmapEnabled)
+                        textureImporter.streamingMipmaps = settings.streamingMipmaps;
+                    if (settings.propertiesToApply["Mip Streaming Priority"] && textureImporter.mipmapEnabled)
+                        textureImporter.streamingMipmapsPriority = settings.streamingMipmapsPriority;
+                    if (settings.propertiesToApply["Virtual Texturing"])
+                        textureImporter.vtOnly = settings.vtOnly;
+
+
+                    if (settings.propertiesToApply["Mip Map Bias"])
+                        textureImporter.mipMapBias = settings.mipMapBias;
 
                     if (settings.propertiesToApply["Compression"])
                     {
@@ -192,7 +238,7 @@ public class TextureProcessorWindow : EditorWindow
                     }
 
                     EditorUtility.SetDirty(textureImporter);
-                    AssetDatabase.ImportAsset(texturePath, ImportAssetOptions.ForceUpdate);
+                    textureImporter.SaveAndReimport();
                 }
 
                 EditorUtility.DisplayProgressBar("Processing Textures", $"Processing texture {i + 1}/{textureGUIDs.Length}", (float)i / textureGUIDs.Length);
@@ -266,6 +312,13 @@ public class TextureProcessorWindow : EditorWindow
         public bool sRGB;
         public TextureImporterAlphaSource alphaSource;
         public bool alphaIsTransparency;
+        public FilterMode filterMode;
+        public int anisoLevel;
+        public bool streamingMipmaps;
+        public int streamingMipmapsPriority;
+        public bool vtOnly;
+        public bool generateMipMap;
+        public float mipMapBias;
     }
 }
 #endif
